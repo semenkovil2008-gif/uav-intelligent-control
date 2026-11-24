@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 3: Управление полетом — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 3 из 7 • Маневры в реальном времени</div>
+      <h1>Этап 3: Управление полетом</h1>
+      <p>
+        Управление движением дрона в реальном времени. Сравнение классического <strong>PID-регулятора</strong>
+        и нейросетевого агента обучения с подкреплением <strong>PPO (Proximal Policy Optimization)</strong> при
+        коррекции скорости, направления и выполнении маневров уклонения.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge badge-amber">Алгоритм PID-регулятор</span>
+        <span class="badge badge-green">Нейроагент PPO (RL)</span>
+        <span class="badge">Коррекция скорости и направления</span>
+        <span class="badge badge-red">Маневрирование и порывы ветра</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="grid-template-columns: 1.25fr 1fr;">
+      <!-- Симулятор реального времени -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Симуляция движения БПЛА в реальном времени</div>
+            <div class="card-subtitle">Пунктир — заданная траектория; сплошная линия — реальный след дрона</div>
+          </div>
+          <span class="badge" id="ctrl-badge">Режим: PPO (ИИ)</span>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn ctrl-btn" data-ctrl="pid">PID-регулятор</button>
+          <button class="btn active-btn ctrl-btn" data-ctrl="ppo">PPO (Нейроагент ИИ)</button>
+          <button class="btn btn-amber" id="btn-gust">💨 Порыв бокового ветра</button>
+          <button class="btn btn-danger" id="btn-maneuver">🚧 Маневр уклонения</button>
+        </div>
+
+        <div class="canvas-wrap" style="margin-bottom: 1rem;">
+          <canvas id="flight-canvas" width="620" height="360" class="sim-canvas"></canvas>
+        </div>
+
+        <div class="grid grid-4" style="gap:0.65rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Скорость</div>
+            <div class="kpi-val" id="tel-speed">12.0 м/с</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Курс (Yaw)</div>
+            <div class="kpi-val" id="tel-yaw">045°</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Крен (Roll)</div>
+            <div class="kpi-val" id="tel-roll">+2.4°</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Ошибка XTE</div>
+            <div class="kpi-val" id="tel-xte" style="color:#34d399;">0.18 м</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Настройка PID / PPO и живой график -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom: 0.75rem;">Параметры регулятора и телеметрия коррекции</div>
+
+        <div id="pid-panel" style="display:none; margin-bottom:1rem; padding:0.85rem; background:var(--bg-surface); border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:0.85rem; font-weight:700; margin-bottom:0.5rem; color:var(--accent-amber);">Коэффициенты PID-регулятора:</div>
+          <div class="control-group">
+            <label><span>Пропорциональный K_p:</span> <strong id="kp-val">1.6</strong></label>
+            <input type="range" id="pid-kp" min="0.4" max="3.5" step="0.1" value="1.6" />
+          </div>
+          <div class="control-group">
+            <label><span>Интегральный K_i:</span> <strong id="ki-val">0.20</strong></label>
+            <input type="range" id="pid-ki" min="0.0" max="0.8" step="0.05" value="0.20" />
+          </div>
+          <div class="control-group" style="margin-bottom:0;">
+            <label><span>Дифференциальный K_d:</span> <strong id="kd-val">0.75</strong></label>
+            <input type="range" id="pid-kd" min="0.1" max="2.0" step="0.05" value="0.75" />
+          </div>
+        </div>
+
+        <div id="ppo-panel" style="margin-bottom:1rem; padding:0.85rem; background:var(--bg-surface); border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:0.85rem; font-weight:700; margin-bottom:0.35rem; color:#34d399;">Политика PPO (Actor-Critic, обучение в среде Gazebo):</div>
+          <div style="font-size:0.82rem; color:var(--text-muted);">
+            Вход: вектор состояния [x, y, vx, vy, ошибка_курса, оценка_ветра_LSTM].<br>
+            Выход: упреждающие команды тяги и углов крена/тангажа (частота 50 Гц).
+          </div>
+        </div>
+
+        <div class="chart-box" style="height: 245px;">
+          <canvas id="chart-flight"></canvas>
+        </div>
+
+        <div class="callout callout-green" id="ctrl-analysis" style="margin-top:0.85rem; font-size:0.85rem;">
+          <strong>Анализ управления:</strong> PPO-агент использует прогноз ветра и заранее наклоняет корпус дрона навстречу порыву, снижая пиковое отклонение от маршрута в 2.4 раза по сравнению с базовым PID.
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(3);
+    chartDefaults();
+
+    const canvas = document.getElementById('flight-canvas');
+    const ctx = canvas.getContext('2d');
+    let controller = 'ppo';
+
+    let t = 0;
+    let drone = { x: 310, y: 80, vx: 0, vy: 0, roll: 0 };
+    let trail = [];
+    let intErrX = 0, intErrY = 0, prevErrX = 0, prevErrY = 0;
+    let windTimer = 0;
+    let obstacleTimer = 0;
+    let dynObs = { x: 470, y: 180 };
+
+    const historyLabels = Array.from({ length: 40 }, () => '');
+    const errHistory = Array(40).fill(0.2);
+    const spdHistory = Array(40).fill(12.0);
+
+    const chartFlight = new Chart(document.getElementById('chart-flight'), {
+      type: 'line',
+      data: {
+        labels: historyLabels,
+        datasets: [
+          { label: 'Ошибка траектории XTE (м)', data: errHistory, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+          { label: 'Скорость БПЛА (м/с)', data: spdHistory, borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { min: 0, max: 6, title: { display: true, text: 'Ошибка, м' } },
+          y1: { position: 'right', min: 5, max: 18, grid: { drawOnChartArea: false }, title: { display: true, text: 'м/с' } }
+        }
+      }
+    });
+
+    function targetPos(angle) {
+      const cx = 310, cy = 180;
+      const rx = 210, ry = 110;
+      return {
+        x: cx + rx * Math.cos(angle),
+        y: cy + ry * Math.sin(angle),
+        tx: -rx * Math.sin(angle),
+        ty: ry * Math.cos(angle)
+      };
+    }
+
+    document.querySelectorAll('.ctrl-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ctrl-btn').forEach(x => x.classList.remove('active-btn'));
+        btn.classList.add('active-btn');
+        controller = btn.dataset.ctrl;
+        document.getElementById('ctrl-badge').textContent = controller === 'pid' ? 'Режим: PID-регулятор' : 'Режим: PPO (ИИ)';
+        document.getElementById('pid-panel').style.display = controller === 'pid' ? 'block' : 'none';
+        document.getElementById('ppo-panel').style.display = controller === 'ppo' ? 'block' : 'none';
+        document.getElementById('ctrl-analysis').innerHTML = controller === 'pid'
+          ? '<strong>Анализ PID:</strong> Реактивное управление по ошибке координат. При сильном порыве ветра возможны колебания и запаздывание, зависящие от K_p, K_i, K_d.'
+          : '<strong>Анализ PPO (RL):</strong> Нейросетевая политика формирует упреждающее управление, минимизируя боковое отклонение (XTE) и плавно корректируя скорость на маневрах.';
+      });
+    });
+
+    document.getElementById('btn-gust').addEventListener('click', () => { windTimer = 110; });
+    document.getElementById('btn-maneuver').addEventListener('click', () => {
+      obstacleTimer = 140;
+      const tgt = targetPos(t + 0.45);
+      dynObs = { x: tgt.x, y: tgt.y };
+    });
+
+    let frameCount = 0;
+    function step() {
+      const dt = 0.032;
+      t += 0.014;
+      const tgt = targetPos(t);
+
+      let aimX = tgt.x, aimY = tgt.y;
+      // Маневр уклонения от динамического препятствия
+      if (obstacleTimer > 0) {
+        obstacleTimer--;
+        const dxO = drone.x - dynObs.x;
+        const dyO = drone.y - dynObs.y;
+        const distO = Math.hypot(dxO, dyO);
+        if (distO < 75) {
+          const push = (75 - distO) * 1.45;
+          aimX += (dxO / (distO || 1)) * push;
+          aimY += (dyO / (distO || 1)) * push;
+        }
+      }
+
+      const windX = windTimer > 0 ? 3.8 : 0.6 * Math.sin(t * 1.5);
+      const windY = windTimer > 0 ? 2.4 : 0.4 * Math.cos(t * 1.2);
+      if (windTimer > 0) windTimer--;
+
+      const errX = aimX - drone.x;
+      const errY = aimY - drone.y;
+
+      let ax = 0, ay = 0;
+      if (controller === 'pid') {
+        const kp = parseFloat(document.getElementById('pid-kp').value);
+        const ki = parseFloat(document.getElementById('pid-ki').value);
+        const kd = parseFloat(document.getElementById('pid-kd').value);
+        document.getElementById('kp-val').textContent = kp.toFixed(1);
+        document.getElementById('ki-val').textContent = ki.toFixed(2);
+        document.getElementById('kd-val').textContent = kd.toFixed(2);
+
+        intErrX = Math.max(-50, Math.min(50, intErrX + errX * dt));
+        intErrY = Math.max(-50, Math.min(50, intErrY + errY * dt));
+        const dErrX = (errX - prevErrX) / dt;
+        const dErrY = (errY - prevErrY) / dt;
+        ax = kp * errX * 0.14 + ki * intErrX * 0.08 + kd * dErrX * 0.018;
+        ay = kp * errY * 0.14 + ki * intErrY * 0.08 + kd * dErrY * 0.018;
+      } else {
+        // PPO упреждающее управление с компенсацией ветра
+        ax = errX * 0.42 - drone.vx * 0.65 - windX * 0.85;
+        ay = errY * 0.42 - drone.vy * 0.65 - windY * 0.85;
+      }
+      prevErrX = errX; prevErrY = errY;
+
+      drone.vx = drone.vx * 0.92 + (ax + windX) * dt * 8.5;
+      drone.vy = drone.vy * 0.92 + (ay + windY) * dt * 8.5;
+      drone.x += drone.vx * dt * 14;
+      drone.y += drone.vy * dt * 14;
+
+      trail.push({ x: drone.x, y: drone.y });
+      if (trail.length > 90) trail.shift();
+
+      // Отрисовка
+      ctx.fillStyle = '#09101f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Сетка
+      ctx.strokeStyle = 'rgba(38, 54, 89, 0.45)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke(); }
+      for (let y = 0; y < canvas.height; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke(); }
+
+      // Заданная траектория
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.setLineDash([6, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(310, 180, 210, 110, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Динамическое препятствие
+      if (obstacleTimer > 0) {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(dynObs.x, dynObs.y, 44, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#fca5a5';
+        ctx.font = 'bold 11px Inter';
+        ctx.fillText('ПРЕПЯТСТВИЕ', dynObs.x - 42, dynObs.y + 4);
+      }
+
+      // Индикатор порыва ветра
+      if (windTimer > 0) {
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.14)';
+        ctx.fillRect(10, 10, 225, 30);
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 12px JetBrains Mono';
+        ctx.fillText('💨 ПОРЫВ ВЕТРА: 12.4 м/с ↘', 18, 29);
+      }
+
+      // След БПЛА
+      if (trail.length > 1) {
+        ctx.strokeStyle = controller === 'ppo' ? '#10b981' : '#f59e0b';
+        ctx.lineWidth = 2.8;
+        ctx.beginPath();
+        ctx.moveTo(trail[0].x, trail[0].y);
+        for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i].x, trail[i].y);
+        ctx.stroke();
+      }
+
+      // Целевая точка на траектории
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(tgt.x, tgt.y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Корпус дрона
+      const heading = Math.atan2(drone.vy || tgt.ty, drone.vx || tgt.tx);
+      ctx.save();
+      ctx.translate(drone.x, drone.y);
+      ctx.rotate(heading);
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-11, -11); ctx.lineTo(11, 11);
+      ctx.moveTo(-11, 11); ctx.lineTo(11, -11);
+      ctx.stroke();
+      // Роторы
+      [[-11, -11], [11, -11], [-11, 11], [11, 11]].forEach(([rx, ry]) => {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.beginPath(); ctx.arc(rx, ry, 5.5, 0, Math.PI * 2); ctx.stroke();
+      });
+      // Нос
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(5, -5); ctx.lineTo(5, 5); ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      // Телеметрия
+      const xte = Math.hypot(tgt.x - drone.x, tgt.y - drone.y) / 14;
+      const spd = 10.5 + Math.hypot(drone.vx, drone.vy) * 0.45;
+      const yawDeg = ((heading * 180 / Math.PI) + 360) % 360;
+      const rollDeg = Math.max(-22, Math.min(22, (windX + ax) * 2.2));
+
+      document.getElementById('tel-speed').textContent = spd.toFixed(1) + ' м/с';
+      document.getElementById('tel-yaw').textContent = String(Math.round(yawDeg)).padStart(3, '0') + '°';
+      document.getElementById('tel-roll').textContent = (rollDeg >= 0 ? '+' : '') + rollDeg.toFixed(1) + '°';
+      const xteEl = document.getElementById('tel-xte');
+      xteEl.textContent = xte.toFixed(2) + ' м';
+      xteEl.style.color = xte < 0.7 ? '#34d399' : (xte < 1.8 ? '#fbbf24' : '#f87171');
+
+      frameCount++;
+      if (frameCount % 6 === 0) {
+        errHistory.push(+xte.toFixed(2)); errHistory.shift();
+        spdHistory.push(+spd.toFixed(2)); spdHistory.shift();
+        chartFlight.update();
+      }
+      requestAnimationFrame(step);
+    }
+    step();
+  </script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 5: Создание карты (SLAM 2D/3D) — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 5 из 7 • Построение карты + Создание локальной карты</div>
+      <h1>Этап 5: Создание карты (SLAM, 2D/3D-картирование)</h1>
+      <p>
+        Картирование окружающей среды в процессе полета. Применение алгоритма одновременной локализации и
+        построения карты <strong>SLAM (Simultaneous Localization and Mapping)</strong>, формирование 2D и 3D карт
+        местности и вставка распознанных объектов (Этап 4) и дрона с траекторией на единую карту.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge">Алгоритм SLAM</span>
+        <span class="badge badge-green">Создание 2D карты</span>
+        <span class="badge badge-amber">Создание 3D карты</span>
+        <span class="badge badge-purple">Вставка объектов и дрона с траекторией</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="grid-template-columns: 1.45fr 1fr;">
+      <!-- 2D / 3D SLAM Canvas -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Интерактивная SLAM-карта окружающей среды</div>
+            <div class="card-subtitle">Переключайтесь между 2D-ортосхемой и вращаемой 3D-проекцией рельефа с дроном</div>
+          </div>
+          <div class="controls-row" style="margin:0;">
+            <button class="btn active-btn view-btn" data-view="2d">2D Карта (SLAM)</button>
+            <button class="btn view-btn" data-view="3d">3D Карта (Рельеф + Дрон)</button>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn btn-primary" id="btn-slam-reset">↻ Перезапустить сканирование SLAM</button>
+          <div id="ctrl-3d" style="display:none; flex:1; gap:1rem; align-items:center; flex-wrap:wrap;">
+            <label style="font-size:0.82rem; color:var(--text-muted);">
+              Поворот 3D (°):
+              <input type="range" id="rot-yaw" min="-180" max="180" value="35" style="width:130px; vertical-align:middle;" />
+            </label>
+            <label style="font-size:0.82rem; color:var(--text-muted);">
+              Наклон (°):
+              <input type="range" id="rot-pitch" min="15" max="75" value="38" style="width:110px; vertical-align:middle;" />
+            </label>
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="slam-canvas" width="680" height="410" class="sim-canvas"></canvas>
+        </div>
+
+        <div class="grid grid-4" style="gap:0.65rem; margin-top:1rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Изучено карты</div>
+            <div class="kpi-val" id="slam-cov">0%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Ориентиры SLAM</div>
+            <div class="kpi-val" id="slam-lm">0 / 28</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Объектов на карте</div>
+            <div class="kpi-val" id="slam-objs" style="color:#fbbf24;">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Погрешность позы</div>
+            <div class="kpi-val" id="slam-err" style="color:#34d399;">0.14 м</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Список объектов и описание SLAM -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:0.65rem;">Вставленные на карту объекты и телеметрия SLAM</div>
+        <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:0.85rem;">
+          По мере движения дрон сканирует сектор радиусом 140 м, замыкает петли (Loop Closure) по ключевым ориентирам и наносит обнаруженные цели на локальную 2D/3D карту.
+        </p>
+
+        <div class="table-wrap" style="margin-bottom: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Объект на карте</th>
+                <th>Коорд. X, Y, H</th>
+                <th>Статус SLAM</th>
+              </tr>
+            </thead>
+            <tbody id="slam-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-green" style="font-size:0.84rem;">
+          <strong>Переход к Этапу 6:</strong> Построенная локальная 2D/3D-карта сопоставляется с геодезической сеткой WGS-84 для точного преобразования локальных координат объектов и маршрута.
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(5);
+
+    const canvas = document.getElementById('slam-canvas');
+    const ctx = canvas.getContext('2d');
+    let viewMode = '2d';
+    let progress = 0;
+
+    // 28 случайных SLAM-ориентиров (landmarks) на полигоне [-180..180]
+    const landmarks = Array.from({ length: 28 }, (_, i) => ({
+      x: Math.sin(i * 4.7) * 155,
+      y: Math.cos(i * 3.1) * 135,
+      z: 2 + Math.abs(Math.sin(i * 2.3)) * 12,
+      discovered: false
+    }));
+
+    // Объекты (с Этапа 4), вставляемые на карту
+    const mapObjects = [
+      { id: 'OBJ-1', name: 'Опора ЛЭП-110кВ', x: 105, y: -75, z: 28, color: '#ef4444', discovered: false },
+      { id: 'OBJ-2', name: 'Лесополоса', x: -115, y: 65, z: 16, color: '#10b981', discovered: false },
+      { id: 'OBJ-3', name: 'Трактор (техника)', x: -45, y: -85, z: 4, color: '#38bdf8', discovered: false },
+      { id: 'OBJ-4', name: 'Зона фитостресса', x: 65, y: 80, z: 1, color: '#f59e0b', discovered: false },
+      { id: 'OBJ-5', name: 'Метеомачта', x: -135, y: -35, z: 32, color: '#ef4444', discovered: false }
+    ];
+
+    // Траектория дрона (спираль / галсы)
+    const pathPts = [];
+    for (let i = 0; i <= 140; i++) {
+      const a = (i / 140) * Math.PI * 4;
+      const r = 45 + (i / 140) * 110;
+      pathPts.push({
+        x: r * Math.cos(a),
+        y: r * Math.sin(a) * 0.82,
+        z: 48 + 8 * Math.sin(a * 0.5)
+      });
+    }
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-btn').forEach(x => x.classList.remove('active-btn'));
+        btn.classList.add('active-btn');
+        viewMode = btn.dataset.view;
+        document.getElementById('ctrl-3d').style.display = viewMode === '3d' ? 'flex' : 'none';
+      });
+    });
+
+    document.getElementById('btn-slam-reset').addEventListener('click', () => {
+      progress = 0;
+      landmarks.forEach(l => l.discovered = false);
+      mapObjects.forEach(o => o.discovered = false);
+    });
+
+    function project3D(x, y, z, yawDeg, pitchDeg) {
+      const yaw = deg2rad(yawDeg);
+      const pitch = deg2rad(pitchDeg);
+      const xr = x * Math.cos(yaw) - y * Math.sin(yaw);
+      const yr = x * Math.sin(yaw) + y * Math.cos(yaw);
+      const yp = yr * Math.sin(pitch) - z * Math.cos(pitch);
+      const scale = 1.25;
+      return {
+        sx: canvas.width / 2 + xr * scale,
+        sy: canvas.height / 2 + 45 + yp * scale
+      };
+    }
+
+    function terrainHeight(x, y) {
+      return 6 * Math.sin(x * 0.022) * Math.cos(y * 0.022) + 3 * Math.cos((x + y) * 0.018);
+    }
+
+    function updateTable() {
+      document.getElementById('slam-tbody').innerHTML = mapObjects.map(o => `
+        <tr>
+          <td><strong style="color:${o.color}">${o.name}</strong></td>
+          <td><code>(${o.x}, ${o.y}, ${o.z}м)</code></td>
+          <td><span class="badge ${o.discovered ? 'badge-green' : ''}">${o.discovered ? 'Нанесен SLAM' : 'Ожидание скана'}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function animate() {
+      if (progress < pathPts.length - 1) {
+        progress = Math.min(pathPts.length - 1, progress + 0.25);
+      }
+      const idx = Math.floor(progress);
+      const drone = pathPts[idx];
+
+      // Обнаружение ориентиров и объектов в радиусе сканера SLAM (135 м)
+      landmarks.forEach(l => {
+        if (Math.hypot(l.x - drone.x, l.y - drone.y) < 135) l.discovered = true;
+      });
+      mapObjects.forEach(o => {
+        if (Math.hypot(o.x - drone.x, o.y - drone.y) < 135) o.discovered = true;
+      });
+
+      const lmCount = landmarks.filter(l => l.discovered).length;
+      const objCount = mapObjects.filter(o => o.discovered).length;
+      document.getElementById('slam-cov').textContent = Math.round((progress / (pathPts.length - 1)) * 100) + '%';
+      document.getElementById('slam-lm').textContent = `${lmCount} / ${landmarks.length}`;
+      document.getElementById('slam-objs').textContent = objCount;
+      document.getElementById('slam-err').textContent = (0.35 - 0.22 * (lmCount / landmarks.length)).toFixed(2) + ' м';
+      updateTable();
+
+      ctx.fillStyle = '#080e1c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (viewMode === '2d') {
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        const sc = 1.65;
+        const to2D = (x, y) => [cx + x * sc, cy + y * sc];
+
+        // Сетка 2D
+        ctx.strokeStyle = 'rgba(38, 54, 89, 0.5)';
+        ctx.lineWidth = 1;
+        for (let gx = -200; gx <= 200; gx += 40) {
+          const [sx] = to2D(gx, 0);
+          ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, canvas.height); ctx.stroke();
+        }
+        for (let gy = -140; gy <= 140; gy += 40) {
+          const [, sy] = to2D(0, gy);
+          ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(canvas.width, sy); ctx.stroke();
+        }
+
+        // Зона сканирования SLAM вокруг дрона
+        const [dx2, dy2] = to2D(drone.x, drone.y);
+        const radPx = 135 * sc;
+        const grad = ctx.createRadialGradient(dx2, dy2, 5, dx2, dy2, radPx);
+        grad.addColorStop(0, 'rgba(56, 189, 248, 0.22)');
+        grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(dx2, dy2, radPx, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Ориентиры SLAM
+        landmarks.forEach(l => {
+          const [lx, ly] = to2D(l.x, l.y);
+          ctx.fillStyle = l.discovered ? '#34d399' : 'rgba(100,116,139,0.25)';
+          ctx.beginPath(); ctx.arc(lx, ly, l.discovered ? 3.5 : 2, 0, Math.PI * 2); ctx.fill();
+          if (l.discovered && Math.hypot(l.x - drone.x, l.y - drone.y) < 135) {
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.28)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(dx2, dy2); ctx.lineTo(lx, ly); ctx.stroke();
+          }
+        });
+
+        // Траектория дрона
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let i = 0; i <= idx; i++) {
+          const [px, py] = to2D(pathPts[i].x, pathPts[i].y);
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // Объекты
+        mapObjects.forEach(o => {
+          if (!o.discovered) return;
+          const [ox, oy] = to2D(o.x, o.y);
+          ctx.fillStyle = o.color;
+          ctx.fillRect(ox - 7, oy - 7, 14, 14);
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 11px Inter';
+          ctx.fillText(o.name, ox + 11, oy + 4);
+        });
+
+        // Дрон
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(dx2, dy2, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 12px JetBrains Mono';
+        ctx.fillText('2D SLAM MAP | Ориентиры и траектория БПЛА', 14, 24);
+      } else {
+        // 3D Карта
+        const yaw = parseFloat(document.getElementById('rot-yaw').value);
+        const pitch = parseFloat(document.getElementById('rot-pitch').value);
+
+        // 3D Сетка рельефа (ЦМР)
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.lineWidth = 1;
+        const step = 30;
+        for (let x = -180; x <= 180; x += step) {
+          ctx.beginPath();
+          for (let y = -150; y <= 150; y += step) {
+            const p = project3D(x, y, terrainHeight(x, y), yaw, pitch);
+            if (y === -150) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+          }
+          ctx.stroke();
+        }
+        for (let y = -150; y <= 150; y += step) {
+          ctx.beginPath();
+          for (let x = -180; x <= 180; x += step) {
+            const p = project3D(x, y, terrainHeight(x, y), yaw, pitch);
+            if (x === -180) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+          }
+          ctx.stroke();
+        }
+
+        // Ориентиры SLAM на рельефе
+        landmarks.forEach(l => {
+          if (!l.discovered) return;
+          const p = project3D(l.x, l.y, terrainHeight(l.x, l.y) + l.z * 0.4, yaw, pitch);
+          ctx.fillStyle = '#34d399';
+          ctx.beginPath(); ctx.arc(p.sx, p.sy, 2.8, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // Вставленные 3D объекты (столбики/объемы)
+        mapObjects.forEach(o => {
+          if (!o.discovered) return;
+          const baseZ = terrainHeight(o.x, o.y);
+          const p0 = project3D(o.x, o.y, baseZ, yaw, pitch);
+          const p1 = project3D(o.x, o.y, baseZ + o.z * 1.4, yaw, pitch);
+          ctx.strokeStyle = o.color;
+          ctx.lineWidth = 5;
+          ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke();
+          ctx.fillStyle = o.color;
+          ctx.beginPath(); ctx.arc(p1.sx, p1.sy, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 11px Inter';
+          ctx.fillText(`${o.name} (${o.z}м)`, p1.sx + 8, p1.sy);
+        });
+
+        // 3D Траектория и ее проекция на землю
+        ctx.strokeStyle = 'rgba(148,163,184,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i <= idx; i++) {
+          const pt = pathPts[i];
+          const p = project3D(pt.x, pt.y, terrainHeight(pt.x, pt.y), yaw, pitch);
+          if (i === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = 0; i <= idx; i++) {
+          const pt = pathPts[i];
+          const p = project3D(pt.x, pt.y, pt.z, yaw, pitch);
+          if (i === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+        }
+        ctx.stroke();
+
+        // 3D Дрон и луч проекции вниз
+        const dp = project3D(drone.x, drone.y, drone.z, yaw, pitch);
+        const gp = project3D(drone.x, drone.y, terrainHeight(drone.x, drone.y), yaw, pitch);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(dp.sx, dp.sy); ctx.lineTo(gp.sx, gp.sy); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Корпус 3D дрона
+        ctx.fillStyle = '#10b981';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(dp.sx, dp.sy, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 12px JetBrains Mono';
+        ctx.fillText(`3D SLAM MAP | Yaw:${yaw}° Pitch:${pitch}° | H=${drone.z.toFixed(0)}м`, 14, 24);
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 1: Подготовка данных и ПО — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 1 из 7 • Поток данных с камеры и датчиков</div>
+      <h1>Этап 1: Подготовка данных и программное обеспечение</h1>
+      <p>
+        На первом этапе система осуществляет сбор сырых данных с бортовых камер (RGB/NIR) и датчиков (GPS, IMU),
+        применяет подготовленный датасет, выполняет удаление шума (фильтрацию), нормализацию данных,
+        а также коррекцию изображений средствами OpenCV и исправление ошибок позиционирования GPS.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge">Сбор данных с камер и датчиков</span>
+        <span class="badge badge-green">Применение датасет</span>
+        <span class="badge badge-amber">Удаление шума (фильтрация)</span>
+        <span class="badge badge-purple">Нормализация данных</span>
+        <span class="badge">Обработка изображений (OpenCV)</span>
+        <span class="badge badge-green">Коррекция GPS и ошибок</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2">
+      <!-- Симулятор OpenCV -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Обработка изображений с камеры БПЛА (OpenCV Pipeline)</div>
+            <div class="card-subtitle">Выберите режим обработки кадра для удаления шума и выделения границ</div>
+          </div>
+          <span class="badge" id="cv-mode-badge">Исходный кадр</span>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn active-btn cv-btn" data-mode="raw">1. Сырой кадр (Шум)</button>
+          <button class="btn cv-btn" data-mode="blur">2. Gaussian Blur (5×5)</button>
+          <button class="btn cv-btn" data-mode="clahe">3. CLAHE (Контраст)</button>
+          <button class="btn cv-btn" data-mode="canny">4. Canny Edge (Границы)</button>
+        </div>
+
+        <div class="canvas-wrap" style="margin-bottom: 1rem;">
+          <canvas id="cv-canvas" width="560" height="320" class="sim-canvas"></canvas>
+        </div>
+
+        <div class="grid grid-3" style="gap: 0.75rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">SNR (Сигнал/Шум)</div>
+            <div class="kpi-val" id="cv-snr">16.4 дБ</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Время OpenCV</div>
+            <div class="kpi-val" id="cv-time">0.0 мс</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Четкость границ</div>
+            <div class="kpi-val" id="cv-sharp" style="font-size:1.1rem;">Низкая</div>
+          </div>
+        </div>
+        <div class="callout" id="cv-desc" style="margin-top:0.85rem;">
+          <strong>Исходное изображение (RGB 1920×1080):</strong> Присутствует гауссовский и импульсный шум матрицы от вибраций БПЛА, а также низкий контраст из-за дымки.
+        </div>
+      </div>
+
+      <!-- Фильтрация и Нормализация -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Удаление шума, коррекция GPS и нормализация данных</div>
+            <div class="card-subtitle">Сравнение сырого сигнала датчика и обработанных данных</div>
+          </div>
+          <span class="badge badge-green" id="sig-badge">Фильтрация + Коррекция</span>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn active-btn sig-btn" data-sig="filter">Удаление шума (EKF/Медиана)</button>
+          <button class="btn sig-btn" data-sig="minmax">Нормализация Min-Max [0..1]</button>
+          <button class="btn sig-btn" data-sig="zscore">Z-Score (Стандартизация)</button>
+        </div>
+
+        <div class="chart-box" style="height: 290px;">
+          <canvas id="chart-stage1"></canvas>
+        </div>
+
+        <div class="grid grid-3" style="gap: 0.75rem; margin-top: 1rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Выбросы удалены</div>
+            <div class="kpi-val" style="color:#34d399;">100%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Дисперсия шума</div>
+            <div class="kpi-val" id="sig-var">-76%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Точность GPS</div>
+            <div class="kpi-val" id="sig-gps">±0.45 м</div>
+          </div>
+        </div>
+
+        <div class="callout callout-green" id="sig-desc" style="margin-top:0.85rem;">
+          <strong>Коррекция ошибок GPS:</strong> Аномальные скачки координат (multipath) на 9-й и 21-й секундах отфильтрованы медианным окном и сглажены фильтром Калмана.
+        </div>
+      </div>
+    </div>
+
+    <!-- Таблица датасета и предобработки -->
+    <h2 class="section-title">Применение Датасет и журнал коррекции ошибок датчиков</h2>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Поток входных записей из датасета (FlightLog + AgriVision-KZ)</div>
+          <div class="card-subtitle">Отфильтруйте источник данных для просмотра сырых и скорректированных значений</div>
+        </div>
+        <div class="controls-row" style="margin:0;">
+          <select id="ds-filter">
+            <option value="all">Все датчики</option>
+            <option value="GPS">Модуль GPS / ГЛОНАСС</option>
+            <option value="Cam">Камера (OpenCV / NIR)</option>
+            <option value="IMU">Инерциальный блок (IMU)</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Источник</th>
+              <th>Сырые данные (до обработки)</th>
+              <th>Статус ошибки</th>
+              <th>После фильтрации и нормализации</th>
+            </tr>
+          </thead>
+          <tbody id="ds-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(1);
+    chartDefaults();
+
+    // Симулятор OpenCV
+    const cvCanvas = document.getElementById('cv-canvas');
+    const ctx = cvCanvas.getContext('2d');
+
+    const cvInfo = {
+      raw: {
+        badge: 'Сырой кадр (до OpenCV)', snr: '16.4 дБ', time: '0.0 мс', sharp: 'Низкая',
+        desc: '<strong>Исходное изображение (RGB 1920×1080):</strong> Присутствует зернистый шум матрицы (σ=18) и слабый контраст в теневых зонах поля.'
+      },
+      blur: {
+        badge: 'cv2.GaussianBlur(img, (5,5), 1.4)', snr: '27.8 дБ', time: '2.1 мс', sharp: 'Сглажено',
+        desc: '<strong>Фильтр Гаусса (Gaussian Blur):</strong> Подавляет высокочастотный шум матрицы и вибрационные артефакты перед детекцией контуров и анализом YOLOv8.'
+      },
+      clahe: {
+        badge: 'cv2.createCLAHE(clipLimit=3.0)', snr: '31.2 дБ', time: '4.6 мс', sharp: 'Высокая',
+        desc: '<strong>Адаптивное выравнивание гистограммы (CLAHE):</strong> Выравнивает освещенность между солнечными и затененными участками посевов для точного расчета NDVI.'
+      },
+      canny: {
+        badge: 'cv2.Canny(img, 80, 180)', snr: '34.5 дБ', time: '6.3 мс', sharp: 'Контуры 100%',
+        desc: '<strong>Детектор границ Canny + выделение объектов:</strong> Четко локализует границы дороги, опоры ЛЭП, полос посева и контуры зоны фитостресса.'
+      }
+    };
+
+    function drawCvScene(mode) {
+      const w = cvCanvas.width, h = cvCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (mode === 'canny') {
+        ctx.fillStyle = '#060a14';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        // Полосы поля
+        for (let y = 30; y < h; y += 26) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y - 35);
+          ctx.stroke();
+        }
+        // Дорога
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(90, 0); ctx.lineTo(220, h);
+        ctx.moveTo(140, 0); ctx.lineTo(275, h);
+        ctx.stroke();
+        // Пятно фитостресса
+        ctx.strokeStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.ellipse(390, 175, 65, 42, 0.2, 0, Math.PI * 2);
+        ctx.stroke();
+        // Опора ЛЭП
+        ctx.strokeStyle = '#ef4444';
+        ctx.strokeRect(435, 45, 58, 58);
+        ctx.beginPath();
+        ctx.moveTo(435, 45); ctx.lineTo(493, 103);
+        ctx.moveTo(493, 45); ctx.lineTo(435, 103);
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 13px JetBrains Mono';
+        ctx.fillText('CANNY EDGES: Контуры объектов и грядок выделены', 16, 26);
+        return;
+      }
+
+      // Базовый ландшафт агрополя
+      const contrastBoost = mode === 'clahe' ? 1.25 : 1.0;
+      ctx.fillStyle = mode === 'clahe' ? '#1f4e2a' : '#2d4733';
+      ctx.fillRect(0, 0, w, h);
+
+      // Грядки посевов
+      for (let y = -40; y < h + 40; y += 26) {
+        ctx.fillStyle = mode === 'clahe' ? 'rgba(52, 211, 153, 0.24)' : 'rgba(134, 239, 172, 0.12)';
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y - 35);
+        ctx.lineTo(w, y - 24);
+        ctx.lineTo(0, y + 11);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Полевая дорога
+      ctx.fillStyle = mode === 'clahe' ? '#927b56' : '#7a6f5d';
+      ctx.beginPath();
+      ctx.moveTo(90, 0); ctx.lineTo(140, 0);
+      ctx.lineTo(275, h); ctx.lineTo(220, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Зона фитостресса (желтоватое пятно)
+      const grad = ctx.createRadialGradient(390, 175, 10, 390, 175, 70);
+      grad.addColorStop(0, mode === 'clahe' ? 'rgba(245, 158, 11, 0.85)' : 'rgba(180, 155, 90, 0.55)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(390, 175, 68, 45, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Опора ЛЭП (вид сверху)
+      ctx.fillStyle = mode === 'clahe' ? '#e2e8f0' : '#94a3b8';
+      ctx.fillRect(442, 52, 44, 44);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(442, 52, 44, 44);
+      ctx.beginPath();
+      ctx.moveTo(442, 52); ctx.lineTo(486, 96);
+      ctx.moveTo(486, 52); ctx.lineTo(442, 96);
+      ctx.stroke();
+
+      // Дымка на сыром кадре
+      if (mode === 'raw') {
+        ctx.fillStyle = 'rgba(200, 215, 225, 0.22)';
+        ctx.fillRect(0, 0, w, h);
+        // Шум матрицы
+        for (let i = 0; i < 2400; i++) {
+          const rx = (Math.sin(i * 19.3) * 0.5 + 0.5) * w;
+          const ry = (Math.cos(i * 47.7) * 0.5 + 0.5) * h;
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.3)';
+          ctx.fillRect(rx, ry, 2, 2);
+        }
+      } else if (mode === 'blur') {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.1)';
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // HUD камеры
+      ctx.fillStyle = 'rgba(11, 17, 32, 0.72)';
+      ctx.fillRect(10, 10, 290, 28);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 12px JetBrains Mono';
+      ctx.fillText(`CAM_01 | ${cvInfo[mode].badge}`, 18, 28);
+    }
+
+    document.querySelectorAll('.cv-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.cv-btn').forEach(x => x.classList.remove('active-btn'));
+        btn.classList.add('active-btn');
+        const m = btn.dataset.mode;
+        drawCvScene(m);
+        const info = cvInfo[m];
+        document.getElementById('cv-mode-badge').textContent = info.badge;
+        document.getElementById('cv-snr').textContent = info.snr;
+        document.getElementById('cv-time').textContent = info.time;
+        document.getElementById('cv-sharp').textContent = info.sharp;
+        document.getElementById('cv-desc').innerHTML = info.desc;
+      });
+    });
+    drawCvScene('raw');
+
+    // График фильтрации и нормализации
+    const labels1 = Array.from({ length: 28 }, (_, i) => i + 'с');
+    const cleanAlt = labels1.map((_, i) => +(45 + 6 * Math.sin(i * 0.25) + 0.15 * i).toFixed(2));
+    const noisyAlt = cleanAlt.map((v, i) => {
+      if (i === 9) return +(v + 9.8).toFixed(2);
+      if (i === 21) return +(v - 8.5).toFixed(2);
+      return +(v + Math.sin(i * 7.1) * 1.9).toFixed(2);
+    });
+    const filteredAlt = cleanAlt.map((v, i) => +(v + Math.sin(i * 2.1) * 0.35).toFixed(2));
+
+    const minV = Math.min(...filteredAlt), maxV = Math.max(...filteredAlt);
+    const minMaxData = filteredAlt.map(v => +((v - minV) / (maxV - minV)).toFixed(3));
+    const meanV = filteredAlt.reduce((a, b) => a + b, 0) / filteredAlt.length;
+    const stdV = Math.sqrt(filteredAlt.reduce((a, b) => a + (b - meanV) ** 2, 0) / filteredAlt.length);
+    const zScoreData = filteredAlt.map(v => +((v - meanV) / stdV).toFixed(3));
+
+    const chart1 = new Chart(document.getElementById('chart-stage1'), {
+      type: 'line',
+      data: {
+        labels: labels1,
+        datasets: [
+          { label: 'Сырой сигнал GPS (высота/коорд. с выбросами)', data: noisyAlt, borderColor: 'rgba(239,68,68,0.7)', borderDash: [4, 3], borderWidth: 1.8 },
+          { label: 'После удаления шума (Калман + Медианный фильтр)', data: filteredAlt, borderColor: '#10b981', borderWidth: 2.8 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Удаление шума и коррекция ошибок GPS-высотомера (м)' } }
+      }
+    });
+
+    document.querySelectorAll('.sig-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sig-btn').forEach(x => x.classList.remove('active-btn'));
+        btn.classList.add('active-btn');
+        const mode = btn.dataset.sig;
+        if (mode === 'filter') {
+          chart1.data.datasets = [
+            { label: 'Сырой сигнал GPS (с выбросами)', data: noisyAlt, borderColor: 'rgba(239,68,68,0.7)', borderDash: [4, 3], borderWidth: 1.8 },
+            { label: 'Очищенный сигнал (EKF + Медиана)', data: filteredAlt, borderColor: '#10b981', borderWidth: 2.8 }
+          ];
+          chart1.options.plugins.title.text = 'Удаление шума и коррекция ошибок GPS (м)';
+          document.getElementById('sig-var').textContent = '-76%';
+          document.getElementById('sig-gps').textContent = '±0.45 м';
+          document.getElementById('sig-desc').innerHTML = '<strong>Коррекция ошибок GPS:</strong> Аномальные скачки координат на 9-й и 21-й секундах отфильтрованы медианным окном и сглажены фильтром Калмана.';
+        } else if (mode === 'minmax') {
+          chart1.data.datasets = [
+            { label: 'Min-Max Нормализация [0, 1]', data: minMaxData, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.18)', fill: true, borderWidth: 2.5 }
+          ];
+          chart1.options.plugins.title.text = 'Нормализация признаков X_norm = (X - X_min) / (X_max - X_min)';
+          document.getElementById('sig-var').textContent = '[0.0 .. 1.0]';
+          document.getElementById('sig-gps').textContent = 'Масштаб ОК';
+          document.getElementById('sig-desc').innerHTML = '<strong>Нормализация Min-Max:</strong> Приведение показаний датчиков и каналов NIR/Red к единому диапазону [0, 1] перед подачей в нейросеть CNN–LSTM и SVM.';
+        } else {
+          chart1.data.datasets = [
+            { label: 'Z-Score Стандартизация (μ=0, σ=1)', data: zScoreData, borderColor: '#a855f7', backgroundColor: 'rgba(168,85,247,0.16)', fill: true, borderWidth: 2.5 }
+          ];
+          chart1.options.plugins.title.text = 'Стандартизация Z = (X - μ) / σ';
+          document.getElementById('sig-var').textContent = 'μ=0, σ=1';
+          document.getElementById('sig-gps').textContent = 'Z-Score ОК';
+          document.getElementById('sig-desc').innerHTML = '<strong>Z-Score стандартизация:</strong> Центрирует данные вокруг нуля с единичной дисперсией, ускоряя сходимость градиентного спуска при обучении ИИ.';
+        }
+        chart1.update();
+      });
+    });
+
+    // Таблица логов датасета
+    const datasetRows = [
+      { ts: '10:14:01.10', src: 'GPS', raw: 'Lat: 51.66812, Lon: 71.01540, Alt: 448.9 м (HDOP 3.8)', err: 'Выброс multipath (+9.8 м)', fixed: 'Alt: 439.1 м (EKF коррекция), norm: 0.42' },
+      { ts: '10:14:01.20', src: 'Cam', raw: 'Frame #412 (RGB 1920×1080, шум σ=18.2, контраст 0.41)', err: 'Вибрационный смаз', fixed: 'Gaussian(5×5) + CLAHE, SNR 31.2 дБ' },
+      { ts: '10:14:01.30', src: 'IMU', raw: 'Roll: +4.82°, Pitch: -2.14°, AccZ: 11.4 м/с²', err: 'Дрейф гироскопа +0.6°', fixed: 'Roll: +4.21°, Pitch: -2.05°, Z-score: +0.34' },
+      { ts: '10:14:01.40', src: 'Cam', raw: 'NIR: 184/255, Red: 72/255 (сырой 8-bit)', err: 'Тень от облака', fixed: 'Радиометрическая калибровка: NIR=0.76, Red=0.22' },
+      { ts: '10:14:01.50', src: 'GPS', raw: 'Lat: 51.66835, Lon: 71.01588, Sats: 14 (HDOP 0.9)', err: 'Нет ошибок', fixed: 'Lat: 51.66835, Lon: 71.01588, norm: 0.68' },
+      { ts: '10:14:01.60', src: 'IMU', raw: 'Yaw: 118.4°, WindEst: 6.9 м/с (пик порыва)', err: 'Высокочастотная помеха', fixed: 'Low-pass фильтр: WindEst = 5.6 м/с' }
+    ];
+
+    function renderDsTable(filter) {
+      const tbody = document.getElementById('ds-tbody');
+      const rows = filter === 'all' ? datasetRows : datasetRows.filter(r => r.src === filter);
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td><code>${r.ts}</code></td>
+          <td><span class="badge">${r.src}</span></td>
+          <td>${r.raw}</td>
+          <td><span class="badge ${r.err === 'Нет ошибок' ? 'badge-green' : 'badge-amber'}">${r.err}</span></td>
+          <td style="color:#a7f3d0;">${r.fixed}</td>
+        </tr>
+      `).join('');
+    }
+    document.getElementById('ds-filter').addEventListener('change', e => renderDsTable(e.target.value));
+    renderDsTable('all');
+  </script>
+</body>
+</html>

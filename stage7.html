@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 7: Принятие решений, NDVI и Результаты — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 7 из 7 • Рисунок 2, Рисунок 3 и Итоговые результаты</div>
+      <h1>Этап 7: Принятие решений, расчет NDVI и результаты системы</h1>
+      <p>
+        Интеллектуальное принятие решений системой в соответствии с заданной блок-схемой (<strong>Рисунок 2</strong>),
+        интеллектуальное управление моментом съёмки на основе анализа индекса <strong>NDVI</strong> и признаков фитостресса
+        (<strong>Рисунок 3</strong>), а также итоговые результаты прогнозирования, обучения и завершенная карта миссии.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge">Блок-схема (Рисунок 2)</span>
+        <span class="badge badge-green">Расчет NDVI (Рисунок 3)</span>
+        <span class="badge badge-amber">Анализ CNN-LSTM-EKF</span>
+        <span class="badge badge-purple">Результаты и Завершенная карта</span>
+      </div>
+    </section>
+
+    <!-- Блок 1: Рисунок 2 -->
+    <h2 class="section-title">1. Интеллектуальное принятие решений по блок-схеме (Рисунок 2)</h2>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Выполнение программы в соответствии с блок-схемой управления БПЛА</div>
+          <div class="card-subtitle">Выберите сценарий входного потока и запустите пошаговое исполнение алгоритма</div>
+        </div>
+        <div class="controls-row" style="margin:0;">
+          <select id="flow-scenario">
+            <option value="anomaly">Сценарий 1: Обнаружена аномалия текстуры / фитостресс</option>
+            <option value="obstacle">Сценарий 2: Обнаружен объект (Опора ЛЭП) → Управление</option>
+            <option value="drop">Сценарий 3: Кадр не получен → continue → Повтор</option>
+          </select>
+          <button class="btn btn-primary" id="btn-run-flow">▶ Запустить выполнение</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="grid-template-columns: 1.35fr 1fr;">
+        <!-- SVG Блок-схема (Рисунок 2) -->
+        <div class="diagram-container">
+          <svg viewBox="0 0 760 540" width="100%" style="min-width:600px; height:auto; font-family:Inter, sans-serif;">
+            <defs>
+              <marker id="f-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#94a3b8" />
+              </marker>
+              <marker id="f-arr-b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+              </marker>
+            </defs>
+
+            <!-- Левая часть (Обработка кадра и детекция) -->
+            <g id="node-start">
+              <rect x="130" y="14" width="210" height="36" rx="18" fill="#1e3a5f" stroke="#38bdf8" stroke-width="2" />
+              <text x="235" y="37" text-anchor="middle" fill="#e0f2fe" font-size="12" font-weight="700">Запуск потока с камеры</text>
+            </g>
+
+            <g id="node-frame">
+              <rect x="120" y="70" width="230" height="36" rx="6" fill="#172554" stroke="#60a5fa" stroke-width="2" />
+              <text x="235" y="93" text-anchor="middle" fill="#dbeafe" font-size="12" font-weight="600">Получение кадра с камеры</text>
+            </g>
+
+            <g id="node-no-frame">
+              <polygon points="235,126 340,158 235,190 130,158" fill="#1e293b" stroke="#94a3b8" stroke-width="2" />
+              <text x="235" y="155" text-anchor="middle" fill="#f1f5f9" font-size="11" font-weight="600">Если кадр не</text>
+              <text x="235" y="170" text-anchor="middle" fill="#f1f5f9" font-size="11" font-weight="600">получен?</text>
+            </g>
+
+            <g id="node-continue">
+              <rect x="20" y="200" width="96" height="32" rx="6" fill="#334155" stroke="#94a3b8" stroke-width="1.5" />
+              <text x="68" y="220" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">continue</text>
+            </g>
+
+            <g id="node-detect">
+              <rect x="125" y="212" width="220" height="38" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+              <text x="235" y="235" text-anchor="middle" fill="#e0f2fe" font-size="11.5" font-weight="600">Обнаружение объектов (detect)</text>
+            </g>
+
+            <g id="node-texture">
+              <rect x="125" y="268" width="220" height="34" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+              <text x="235" y="289" text-anchor="middle" fill="#e0f2fe" font-size="11.5" font-weight="600">Проверка аномалий текстуры</text>
+            </g>
+
+            <g id="node-gps">
+              <rect x="125" y="318" width="220" height="38" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+              <text x="235" y="341" text-anchor="middle" fill="#e0f2fe" font-size="11.5" font-weight="600">Получение координат GPS</text>
+            </g>
+
+            <g id="node-detected-q">
+              <polygon points="235,374 375,406 235,438 95,406" fill="#1e293b" stroke="#fbbf24" stroke-width="2" />
+              <text x="235" y="403" text-anchor="middle" fill="#fef3c7" font-size="11" font-weight="600">Обнаружены объекты</text>
+              <text x="235" y="418" text-anchor="middle" fill="#fef3c7" font-size="11" font-weight="600">или аномалии?</text>
+            </g>
+
+            <g id="node-msg">
+              <rect x="145" y="454" width="180" height="34" rx="6" fill="#1e293b" stroke="#94a3b8" stroke-width="1.5" />
+              <text x="235" y="475" text-anchor="middle" fill="#e2e8f0" font-size="11.5" font-weight="600">Формирование сообщения</text>
+            </g>
+
+            <g id="node-send">
+              <rect x="24" y="502" width="175" height="30" rx="6" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.5" />
+              <text x="111" y="521" text-anchor="middle" fill="#ccfbf1" font-size="11.5" font-weight="600">Отправка сообщения</text>
+            </g>
+
+            <g id="node-obj-ctrl">
+              <rect x="260" y="502" width="175" height="30" rx="6" fill="#7c2d12" stroke="#fb923c" stroke-width="1.5" />
+              <text x="347" y="521" text-anchor="middle" fill="#ffedd5" font-size="11.5" font-weight="600">Управление объектом</text>
+            </g>
+
+            <!-- Правая часть (Анализ CNN-LSTM-EKF и адаптивное управление) -->
+            <g id="node-ai-analysis">
+              <polygon points="585,112 725,152 585,192 445,152" fill="#312e81" stroke="#a855f7" stroke-width="2.2" />
+              <text x="585" y="143" text-anchor="middle" fill="#f3e8ff" font-size="11" font-weight="700">Анализ с применением</text>
+              <text x="585" y="157" text-anchor="middle" fill="#f3e8ff" font-size="11" font-weight="700">нейронной сети</text>
+              <text x="585" y="171" text-anchor="middle" fill="#d8b4fe" font-size="11" font-weight="700">CNN-LSTM-EKF</text>
+            </g>
+
+            <g id="node-ai-decision">
+              <rect x="465" y="218" width="240" height="44" rx="8" fill="#065f46" stroke="#34d399" stroke-width="2" />
+              <text x="585" y="237" text-anchor="middle" fill="#ecfdf5" font-size="12" font-weight="700">Принятие решений</text>
+              <text x="585" y="253" text-anchor="middle" fill="#a7f3d0" font-size="11.5" font-weight="600">на основе ИИ</text>
+            </g>
+
+            <g id="node-uav-ctrl">
+              <rect x="465" y="286" width="240" height="40" rx="8" fill="#1e3a5f" stroke="#38bdf8" stroke-width="2" />
+              <text x="585" y="310" text-anchor="middle" fill="#e0f2fe" font-size="12" font-weight="700">Адаптивное управление БПЛА</text>
+            </g>
+
+            <g id="node-feedback">
+              <rect x="465" y="352" width="240" height="36" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="1.8" />
+              <text x="585" y="374" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="600">Обратная связь</text>
+            </g>
+
+            <g id="node-adaptive">
+              <rect x="465" y="414" width="240" height="42" rx="8" fill="#0f766e" stroke="#2dd4bf" stroke-width="2" />
+              <text x="585" y="439" text-anchor="middle" fill="#ccfbf1" font-size="12" font-weight="700">Адаптивное управление</text>
+            </g>
+
+            <!-- Соединительные стрелки -->
+            <path d="M 235 50 L 235 68" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <path d="M 235 106 L 235 124" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <path d="M 130 158 L 68 158 L 68 198" stroke="#94a3b8" stroke-width="1.8" fill="none" marker-end="url(#f-arr)" />
+            <text x="86" y="150" fill="#fbbf24" font-size="10.5">Да</text>
+            <path d="M 68 200 L 68 88 L 118 88" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="4,3" fill="none" marker-end="url(#f-arr)" />
+
+            <path d="M 235 190 L 235 210" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <text x="245" y="203" fill="#34d399" font-size="10.5">Нет</text>
+            <path d="M 235 250 L 235 266" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <path d="M 235 302 L 235 316" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <path d="M 235 356 L 235 372" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+
+            <path d="M 235 438 L 235 452" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#f-arr)" />
+            <text x="245" y="449" fill="#34d399" font-size="10.5">Да</text>
+            <path d="M 185 488 L 111 500" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#f-arr)" />
+            <path d="M 285 488 L 347 500" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#f-arr)" />
+
+            <!-- Связь левой и правой части (по Рисунку 2) -->
+            <path d="M 375 406 L 415 406 L 415 88 L 585 88 L 585 110" stroke="#38bdf8" stroke-width="2.2" fill="none" marker-end="url(#f-arr-b)" />
+            <path d="M 585 192 L 585 216" stroke="#38bdf8" stroke-width="2" marker-end="url(#f-arr-b)" />
+            <text x="595" y="207" fill="#34d399" font-size="10.5">Да</text>
+            <path d="M 585 262 L 585 284" stroke="#38bdf8" stroke-width="2" marker-end="url(#f-arr-b)" />
+            <path d="M 585 326 L 585 350" stroke="#38bdf8" stroke-width="2" marker-end="url(#f-arr-b)" />
+            <path d="M 585 388 L 585 412" stroke="#38bdf8" stroke-width="2" marker-end="url(#f-arr-b)" />
+            <path d="M 705 435 L 735 435 L 735 370 L 707 370" stroke="#2dd4bf" stroke-width="1.8" fill="none" marker-end="url(#f-arr-b)" />
+          </svg>
+        </div>
+
+        <!-- Лог выполнения и код программы -->
+        <div style="display:flex; flex-direction:column; gap:0.85rem;">
+          <div>
+            <div style="font-size:0.86rem; font-weight:700; margin-bottom:0.4rem;">Журнал выполнения алгоритма и анализ решения:</div>
+            <div class="terminal-log" id="flow-log">
+              <div class="log-info">[SYSTEM] Готов к запуску. Выберите сценарий и нажмите «▶ Запустить выполнение».</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.86rem; font-weight:700; margin-bottom:0.4rem;">Реализация программы на Python (по блок-схеме):</div>
+            <pre class="code-block">cap = start_camera_stream()
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        continue  # Кадр не получен
+    objects = yolov8.detect(frame)
+    anomalies = check_texture_and_ndvi(frame)
+    gps = get_gps_coords()
+    if objects or anomalies:
+        send_alert_or_control(objects, anomalies, gps)
+        state = cnn_lstm_ekf.predict(gps, frame, wind)
+        cmd = ai_decision_engine(state, objects)
+        uav.adaptive_control(cmd) # Обратная связь</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Блок 2: Рисунок 3 (Расчет NDVI) -->
+    <h2 class="section-title">2. Расчет NDVI и принятие решений (Рисунок 3)</h2>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">ИНТЕЛЛЕКТУАЛЬНОЕ УПРАВЛЕНИЕ МОМЕНТОМ СЪЁМКИ НА ОСНОВЕ АНАЛИЗА NDVI И ПРИЗНАКОВ ФИТОСТРЕССА С ПРИМЕНЕНИЕМ ИИ</div>
+          <div class="card-subtitle">Кликните по любому сектору мультиспектральной карты поля или настройте каналы NIR и Red</div>
+        </div>
+        <span class="badge badge-green" id="ndvi-trigger-badge">Камера: Ожидание</span>
+      </div>
+
+      <div class="grid grid-2">
+        <div>
+          <!-- Интерактивная матрица поля NDVI -->
+          <div class="canvas-wrap" style="margin-bottom:0.85rem;">
+            <canvas id="ndvi-canvas" width="540" height="280" class="sim-canvas" style="cursor:crosshair;"></canvas>
+          </div>
+
+          <div class="formula-box">
+            NDVI = (NIR − Red) / (NIR + Red) = (<span id="f-nir">0.78</span> − <span id="f-red">0.18</span>) / (<span id="f-nir2">0.78</span> + <span id="f-red2">0.18</span>) = <strong id="f-res" style="color:#34d399;">0.625</strong>
+          </div>
+
+          <div class="grid grid-3" style="gap:0.75rem;">
+            <div class="control-group" style="margin:0;">
+              <label><span>Канал NIR (840 нм):</span> <strong id="nir-val">0.78</strong></label>
+              <input type="range" id="in-nir" min="0.10" max="0.95" step="0.01" value="0.78" />
+            </div>
+            <div class="control-group" style="margin:0;">
+              <label><span>Канал Red (660 нм):</span> <strong id="red-val">0.18</strong></label>
+              <input type="range" id="in-red" min="0.05" max="0.80" step="0.01" value="0.18" />
+            </div>
+            <div class="control-group" style="margin:0;">
+              <label><span>Порог стресса:</span> <strong id="thr-val">0.40</strong></label>
+              <input type="range" id="in-thr" min="0.20" max="0.60" step="0.02" value="0.40" />
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; justify-content:space-between; gap:0.85rem;">
+          <div class="grid grid-2" style="gap:0.75rem;">
+            <div class="kpi-card">
+              <div class="kpi-label">Значение NDVI</div>
+              <div class="kpi-val" id="kpi-ndvi">0.625</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Классификация ИИ</div>
+              <div class="kpi-val" id="kpi-stress" style="font-size:1rem; color:#34d399;">Норма (Здоровый)</div>
+            </div>
+          </div>
+
+          <div class="card" style="background:var(--bg-surface); padding:0.9rem;">
+            <div class="chart-box" style="height:220px;"><canvas id="chart-spectrum"></canvas></div>
+          </div>
+
+          <div class="callout" id="ndvi-decision-box" style="margin:0;">
+            <strong>Принятие решения (NDVI &ge; порог):</strong> Признаков фитостресса не обнаружено. БПЛА продолжает плановый пролёт.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Блок 3: Результаты (Прогнозирование, Результаты обучения, Завершенная карта) -->
+    <h2 class="section-title">3. Результаты (Прогнозирование, Результаты обучения, Завершенная карта)</h2>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Прогнозирование состояния посевов и индекса NDVI</div>
+            <div class="card-subtitle">Прогноз изменения NDVI на 30 дней вперед (CNN–LSTM + XGBoost)</div>
+          </div>
+        </div>
+        <div class="chart-box" style="height: 270px;"><canvas id="chart-forecast"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Результаты обучения моделей (CNN–LSTM-EKF и YOLOv8)</div>
+            <div class="card-subtitle">Сходимость точности (mAP / Accuracy) и функции потерь (Loss) по эпохам</div>
+          </div>
+        </div>
+        <div class="chart-box" style="height: 270px;"><canvas id="chart-training"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 1.25rem;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Завершенная карта миссии (ГИС + Маршрут + Зоны NDVI + Объекты YOLOv8)</div>
+          <div class="card-subtitle">Итоговый синтез всех 7 этапов на агрополигоне Казахстана (Шортанды, 51.668° N, 71.015° E)</div>
+        </div>
+        <span class="badge badge-green">Миссия завершена успешно</span>
+      </div>
+      <div id="map-final" class="map-box" style="height: 400px;"></div>
+      <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+        <a href="UAV_Intelligent_Control_Presentation.pptx" download class="btn btn-amber">📥 Скачать презентацию для защиты (.pptx)</a>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(7);
+    chartDefaults();
+
+    // 1. Анимация блок-схемы (Рисунок 2)
+    const scenarios = {
+      anomaly: [
+        { id: 'node-start', msg: '[CAM] Запуск потока камеры RGB+NIR (1920x1080 @ 30fps)...', cls: 'log-info' },
+        { id: 'node-frame', msg: '[CAM] Получен кадр #1042.', cls: '' },
+        { id: 'node-no-frame', msg: '[CHECK] Кадр получен корректно (ret=True) -> Нет.', cls: '' },
+        { id: 'node-detect', msg: '[YOLOv8] detect(): Обнаружена зона фитостресса (conf=0.88).', cls: 'log-warn' },
+        { id: 'node-texture', msg: '[OPENCV] Проверка текстуры GLCM: выявлено снижение индекса NDVI (0.29 < 0.40).', cls: 'log-warn' },
+        { id: 'node-gps', msg: '[GPS] get_gps_coords(): Lat=51.66842, Lon=71.01612, H=60.0м.', cls: '' },
+        { id: 'node-detected-q', msg: '[BRANCH] Обнаружены аномалии = ДА -> Передача в контур ИИ!', cls: 'log-info' },
+        { id: 'node-msg', msg: '[MSG] Формирование телеметрии аномалии NDVI.', cls: '' },
+        { id: 'node-send', msg: '[SEND] Отправка сообщения оператору: «Сектор B4: фитостресс».', cls: 'log-info' },
+        { id: 'node-ai-analysis', msg: '[AI] Анализ CNN-LSTM-EKF: прогноз ветра 5.4 м/с, оценка EKF точность ±0.08м.', cls: 'log-info' },
+        { id: 'node-ai-decision', msg: '[DECISION] Принятие решения ИИ: снизить высоту до 25 м для детальной съёмки.', cls: 'log-info' },
+        { id: 'node-uav-ctrl', msg: '[CTRL] Адаптивное управление БПЛА: снижение и зависание над целью.', cls: '' },
+        { id: 'node-feedback', msg: '[FB] Обратная связь по IMU/GPS подтверждена.', cls: '' },
+        { id: 'node-adaptive', msg: '[DONE] Детальный мультиспектральный снимок выполнен. Возврат на маршрут.', cls: '' }
+      ],
+      obstacle: [
+        { id: 'node-start', msg: '[CAM] Запуск потока камеры...', cls: 'log-info' },
+        { id: 'node-frame', msg: '[CAM] Получен кадр #1180.', cls: '' },
+        { id: 'node-no-frame', msg: '[CHECK] Кадр получен -> Нет.', cls: '' },
+        { id: 'node-detect', msg: '[YOLOv8] detect(): ОПАСНОСТЬ! Обнаружена «Опора ЛЭП» в 38 м (conf=0.95).', cls: 'log-err' },
+        { id: 'node-texture', msg: '[OPENCV] Проверка текстуры: металлическая конструкция, высота 28 м.', cls: 'log-warn' },
+        { id: 'node-gps', msg: '[GPS] get_gps_coords(): Lat=51.66940, Lon=71.01720.', cls: '' },
+        { id: 'node-detected-q', msg: '[BRANCH] Обнаружены объекты = ДА!', cls: 'log-warn' },
+        { id: 'node-msg', msg: '[MSG] Формирование команды экстренного маневра.', cls: '' },
+        { id: 'node-obj-ctrl', msg: '[OBJ] Управление объектом: добавление препятствия в локальную карту SLAM.', cls: 'log-warn' },
+        { id: 'node-ai-analysis', msg: '[AI] Анализ CNN-LSTM-EKF: перерасчет безопасного коридора.', cls: 'log-info' },
+        { id: 'node-ai-decision', msg: '[DECISION] Решение ИИ: боковой облет +22 м вправо (алгоритм PPO).', cls: 'log-info' },
+        { id: 'node-uav-ctrl', msg: '[CTRL] Адаптивное управление БПЛА: крен +14°, скорость 9.5 м/с.', cls: '' },
+        { id: 'node-feedback', msg: '[FB] Обратная связь: дистанция до ЛЭП > 25 м, безопасно.', cls: '' },
+        { id: 'node-adaptive', msg: '[DONE] Препятствие успешно пройдено!', cls: '' }
+      ],
+      drop: [
+        { id: 'node-start', msg: '[CAM] Запуск потока камеры...', cls: 'log-info' },
+        { id: 'node-frame', msg: '[CAM] Попытка захвата кадра #1205...', cls: '' },
+        { id: 'node-no-frame', msg: '[CHECK] Если кадр не получен? -> ДА (кратковременный сбой шины MIPI).', cls: 'log-err' },
+        { id: 'node-continue', msg: '[LOOP] Выполнение оператора continue -> пропуск цикла, повторный запрос.', cls: 'log-warn' },
+        { id: 'node-frame', msg: '[CAM] Повторный захват: Кадр #1206 получен успешно!', cls: '' },
+        { id: 'node-no-frame', msg: '[CHECK] Кадр не получен? -> Нет. Продолжение штатного конвейера.', cls: 'log-info' },
+        { id: 'node-detect', msg: '[YOLOv8] detect(): Посторонних препятствий не выявлено.', cls: '' }
+      ]
+    };
+
+    let flowTimer = null;
+    document.getElementById('btn-run-flow').addEventListener('click', () => {
+      if (flowTimer) clearInterval(flowTimer);
+      const scen = scenarios[document.getElementById('flow-scenario').value];
+      const logEl = document.getElementById('flow-log');
+      logEl.innerHTML = '';
+      document.querySelectorAll('.flow-active').forEach(el => el.classList.remove('flow-active'));
+
+      let stepIdx = 0;
+      flowTimer = setInterval(() => {
+        document.querySelectorAll('.flow-active').forEach(el => el.classList.remove('flow-active'));
+        if (stepIdx >= scen.length) {
+          clearInterval(flowTimer);
+          return;
+        }
+        const s = scen[stepIdx];
+        const node = document.getElementById(s.id);
+        if (node) node.classList.add('flow-active');
+        const line = document.createElement('div');
+        line.className = s.cls;
+        line.textContent = s.msg;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+        stepIdx++;
+      }, 650);
+    });
+
+    // 2. Рисунок 3: NDVI + Спектр + Матрица поля
+    const ndviCanvas = document.getElementById('ndvi-canvas');
+    const nctx = ndviCanvas.getContext('2d');
+    const cols = 9, rows = 5;
+    // Сетка поля (значения NIR, Red)
+    const fieldCells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        // В центре и справа внизу — очаги фитостресса
+        const isStress = (c >= 4 && c <= 6 && r >= 1 && r <= 3) || (c === 1 && r === 3);
+        const isMod = (c === 3 && r >= 1 && r <= 3) || (c === 7 && r === 2);
+        let nir = 0.78, red = 0.17;
+        if (isStress) { nir = 0.42; red = 0.25; }
+        else if (isMod) { nir = 0.56; red = 0.22; }
+        else { nir = 0.75 + Math.sin(c + r) * 0.06; red = 0.16 + Math.cos(c * r) * 0.02; }
+        fieldCells.push({ r, c, nir: +nir.toFixed(2), red: +red.toFixed(2) });
+      }
+    }
+
+    function drawNdviGrid(selectedIdx = -1) {
+      const cw = ndviCanvas.width / cols;
+      const ch = ndviCanvas.height / rows;
+      fieldCells.forEach((cell, idx) => {
+        const ndvi = (cell.nir - cell.red) / (cell.nir + cell.red);
+        let col = '#10b981';
+        if (ndvi < 0.32) col = '#b45309';
+        else if (ndvi < 0.45) col = '#eab308';
+        else if (ndvi < 0.58) col = '#65a30d';
+
+        nctx.fillStyle = col;
+        nctx.fillRect(cell.c * cw, cell.r * ch, cw - 1, ch - 1);
+
+        if (idx === selectedIdx) {
+          nctx.strokeStyle = '#ffffff';
+          nctx.lineWidth = 3;
+          nctx.strokeRect(cell.c * cw + 2, cell.r * ch + 2, cw - 5, ch - 5);
+        }
+
+        nctx.fillStyle = '#090e1a';
+        nctx.font = 'bold 12px JetBrains Mono';
+        nctx.fillText(ndvi.toFixed(2), cell.c * cw + 12, cell.r * ch + 33);
+      });
+    }
+
+    const chartSpectrum = new Chart(document.getElementById('chart-spectrum'), {
+      type: 'line',
+      data: {
+        labels: ['450 нм (Blue)', '550 нм (Green)', '660 нм (Red)', '750 нм (RedEdge)', '840 нм (NIR)'],
+        datasets: [{
+          label: 'Спектральная кривая отражения',
+          data: [0.08, 0.16, 0.18, 0.52, 0.78],
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+          fill: true,
+          borderWidth: 3,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Спектральная характеристика растительности (450–840 нм)' } },
+        scales: { y: { min: 0, max: 1.0 } }
+      }
+    });
+
+    function updateNdvi() {
+      const nir = parseFloat(document.getElementById('in-nir').value);
+      const red = parseFloat(document.getElementById('in-red').value);
+      const thr = parseFloat(document.getElementById('in-thr').value);
+      const ndvi = (nir - red) / (nir + red);
+
+      document.getElementById('nir-val').textContent = nir.toFixed(2);
+      document.getElementById('red-val').textContent = red.toFixed(2);
+      document.getElementById('thr-val').textContent = thr.toFixed(2);
+      document.getElementById('f-nir').textContent = nir.toFixed(2);
+      document.getElementById('f-nir2').textContent = nir.toFixed(2);
+      document.getElementById('f-red').textContent = red.toFixed(2);
+      document.getElementById('f-red2').textContent = red.toFixed(2);
+      document.getElementById('f-res').textContent = ndvi.toFixed(3);
+      document.getElementById('kpi-ndvi').textContent = ndvi.toFixed(3);
+
+      const stressEl = document.getElementById('kpi-stress');
+      const trigEl = document.getElementById('ndvi-trigger-badge');
+      const decBox = document.getElementById('ndvi-decision-box');
+
+      if (ndvi < thr) {
+        stressEl.textContent = 'Подозрение на стресс!';
+        stressEl.style.color = '#f87171';
+        trigEl.textContent = '📷 СЪЁМКА АКТИВИРОВАНА!';
+        trigEl.className = 'badge badge-red';
+        decBox.className = 'callout callout-amber';
+        decBox.innerHTML = `<strong>Принятие решения (NDVI = ${ndvi.toFixed(2)} &lt; ${thr.toFixed(2)} — есть признаки фитостресса):</strong> ИИ активирует затвор камеры высокого разрешения, снижает скорость дрона и сохраняет координаты очага стресса.`;
+        chartSpectrum.data.datasets[0].borderColor = '#f59e0b';
+        chartSpectrum.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.2)';
+      } else {
+        stressEl.textContent = 'Норма (Здоровый)';
+        stressEl.style.color = '#34d399';
+        trigEl.textContent = 'Камера: Плановый режим';
+        trigEl.className = 'badge badge-green';
+        decBox.className = 'callout callout-green';
+        decBox.innerHTML = `<strong>Принятие решения (NDVI = ${ndvi.toFixed(2)} &ge; ${thr.toFixed(2)} — Нет стресса):</strong> Вегетация в норме. БПЛА продолжает полет по оптимальной траектории без дополнительного зависания.`;
+        chartSpectrum.data.datasets[0].borderColor = '#10b981';
+        chartSpectrum.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.2)';
+      }
+
+      chartSpectrum.data.datasets[0].data = [0.08, +(red * 0.85 + 0.05).toFixed(2), red, +((red + nir) / 2).toFixed(2), nir];
+      chartSpectrum.update();
+    }
+
+    ndviCanvas.addEventListener('click', e => {
+      const rect = ndviCanvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (ndviCanvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (ndviCanvas.height / rect.height);
+      const c = Math.min(cols - 1, Math.floor(x / (ndviCanvas.width / cols)));
+      const r = Math.min(rows - 1, Math.floor(y / (ndviCanvas.height / rows)));
+      const idx = r * cols + c;
+      const cell = fieldCells[idx];
+      document.getElementById('in-nir').value = cell.nir;
+      document.getElementById('in-red').value = cell.red;
+      drawNdviGrid(idx);
+      updateNdvi();
+    });
+
+    ['in-nir', 'in-red', 'in-thr'].forEach(id => document.getElementById(id).addEventListener('input', updateNdvi));
+    const initCell = fieldCells[14];
+    document.getElementById('in-nir').value = initCell.nir;
+    document.getElementById('in-red').value = initCell.red;
+    drawNdviGrid(14);
+    updateNdvi();
+
+    // 3. Результаты: Прогнозирование
+    new Chart(document.getElementById('chart-forecast'), {
+      type: 'line',
+      data: {
+        labels: ['День 1', 'День 5', 'День 10', 'День 15 (Сегодня)', 'День 20 (Прогноз)', 'День 25 (Прогноз)', 'День 30 (Прогноз)'],
+        datasets: [
+          { label: 'Здоровые участки (Средний NDVI)', data: [0.58, 0.62, 0.65, 0.67, 0.69, 0.71, 0.72], borderColor: '#10b981', borderWidth: 2.5, tension: 0.3 },
+          { label: 'Очаг стресса без полива (Прогноз CNN-LSTM)', data: [0.52, 0.44, 0.36, 0.29, 0.24, 0.19, 0.16], borderColor: '#ef4444', borderDash: [5, 4], borderWidth: 2.5, tension: 0.3 },
+          { label: 'Очаг после внесения удобрений (ИИ-рекомендация)', data: [null, null, null, 0.29, 0.39, 0.49, 0.57], borderColor: '#38bdf8', borderWidth: 2.8, tension: 0.3 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0.1, max: 0.85 } } }
+    });
+
+    // 4. Результаты обучения
+    new Chart(document.getElementById('chart-training'), {
+      type: 'line',
+      data: {
+        labels: ['Эпоха 1', 'Эпоха 10', 'Эпоха 20', 'Эпоха 30', 'Эпоха 40', 'Эпоха 50'],
+        datasets: [
+          { label: 'Точность CNN-LSTM-EKF (%)', data: [64, 78, 86, 91, 94.5, 96.2], borderColor: '#38bdf8', borderWidth: 2.5, tension: 0.3 },
+          { label: 'YOLOv8 mAP@50 (%)', data: [52, 73, 84, 89, 92.8, 94.4], borderColor: '#a855f7', borderWidth: 2.5, tension: 0.3 },
+          { label: 'Ошибка обучения Loss (×100)', data: [82, 46, 28, 17, 11, 7.5], borderColor: '#f59e0b', borderDash: [4, 4], borderWidth: 2, tension: 0.3 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 5. Завершенная карта миссии (Leaflet)
+    const reg = KAZAKHSTAN_REGIONS.akmola;
+    const finalMap = L.map('map-final').setView([reg.lat, reg.lon], 15);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Esri World Imagery'
+    }).addTo(finalMap);
+
+    // Зона здорового поля
+    L.polygon([
+      [reg.lat - 0.0022, reg.lon - 0.0038],
+      [reg.lat + 0.0022, reg.lon - 0.0038],
+      [reg.lat + 0.0022, reg.lon + 0.0038],
+      [reg.lat - 0.0022, reg.lon + 0.0038]
+    ], { color: '#10b981', fillColor: '#10b981', fillOpacity: 0.14, weight: 2 }).bindPopup('Агрополигон Шортанды (NDVI в среднем 0.64)').addTo(finalMap);
+
+    // Очаг фитостресса
+    L.circle([reg.lat - 0.0005, reg.lon + 0.0012], {
+      radius: 75, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.42
+    }).bindPopup('<strong>Очаг фитостресса!</strong><br>NDVI = 0.27 (Снято камерой БПЛА)').addTo(finalMap);
+
+    // Препятствия YOLOv8
+    reg.obstacles.forEach(o => {
+      L.circle([reg.lat + o.dLat, reg.lon + o.dLon], {
+        radius: o.radiusM, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.35
+      }).bindPopup(`<strong>${o.name}</strong><br>Обнаружено YOLOv8`).addTo(finalMap);
+    });
+
+    // Пройденная траектория миссии
+    const finalRoute = [
+      [reg.lat - 0.0018, reg.lon - 0.0032],
+      [reg.lat - 0.0018, reg.lon + 0.0032],
+      [reg.lat - 0.0006, reg.lon + 0.0032],
+      [reg.lat - 0.0006, reg.lon - 0.0032],
+      [reg.lat + 0.0007, reg.lon - 0.0032],
+      [reg.lat + 0.0007, reg.lon + 0.0010],
+      [reg.lat + 0.0020, reg.lon + 0.0016],
+      [reg.lat + 0.0007, reg.lon + 0.0032],
+      [reg.lat + 0.0018, reg.lon + 0.0032],
+      [reg.lat + 0.0018, reg.lon - 0.0032]
+    ];
+    L.polyline(finalRoute, { color: '#38bdf8', weight: 3.5 }).addTo(finalMap);
+    L.circleMarker(finalRoute[0], { radius: 7, color: '#fff', fillColor: '#10b981', fillOpacity: 1 })
+      .bindPopup('Базовая станция (Home) • ENU (0, 0, 0)').addTo(finalMap);
+  </script>
+</body>
+</html>

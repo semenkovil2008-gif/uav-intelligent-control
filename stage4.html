@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 4: Обнаружение объектов (YOLOv8) — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 4 из 7 • Поток с камеры → YOLOv8 → ГИС</div>
+      <h1>Этап 4: Обнаружение объектов (на основе БПЛА, ГИС)</h1>
+      <p>
+        Распознавание объектов и препятствий в видеопотоке с камеры БПЛА при помощи нейросети <strong>YOLOv8</strong>
+        в реальном времени. Для каждой найденной цели система вычисляет ограничивающую рамку (Bounding Box),
+        вероятность класса, дистанцию до препятствия и геодезические ГИС-координаты (WGS-84).
+      </p>
+      <div class="hero-tasks">
+        <span class="badge">Распознавание с помощью камеры</span>
+        <span class="badge badge-amber">Нейронная сеть YOLOv8</span>
+        <span class="badge badge-green">Определение координат объекта</span>
+        <span class="badge badge-red">Обнаружение препятствий</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="grid-template-columns: 1.3fr 1fr;">
+      <!-- Видеопоток YOLOv8 -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Поток камеры БПЛА + инференс YOLOv8n</div>
+            <div class="card-subtitle">Настройка порога уверенности отфильтровывает слабые срабатывания</div>
+          </div>
+          <span class="badge badge-green" id="yolo-fps">38.4 FPS • 26.0 мс</span>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn btn-primary" id="btn-yolo-toggle">⏸ Пауза потока</button>
+          <div style="flex:1; min-width:200px;">
+            <label style="font-size:0.82rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+              <span>Порог уверенности (Confidence):</span>
+              <strong id="conf-val">0.50</strong>
+            </label>
+            <input type="range" id="yolo-conf" min="0.25" max="0.90" step="0.05" value="0.50" />
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="yolo-canvas" width="620" height="360" class="sim-canvas"></canvas>
+        </div>
+
+        <div class="grid grid-3" style="gap:0.75rem; margin-top:1rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Объектов в кадре</div>
+            <div class="kpi-val" id="yolo-count">4</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Опасных препятствий</div>
+            <div class="kpi-val" id="yolo-obs-cnt" style="color:#f87171;">2</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Модель детекции</div>
+            <div class="kpi-val" style="font-size:1.05rem;">YOLOv8n-VisDrone</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Локальная ГИС-привязка и классы -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:0.75rem;">ГИС-привязка координат обнаруженных объектов</div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.85rem;">
+          Координаты объекта на земле рассчитываются проекцией луча камеры через матрицу углов Эйлера (Roll, Pitch, Yaw) и высоту полета H = 60 м на плоскость WGS-84.
+        </p>
+
+        <div class="table-wrap" style="max-height: 295px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Класс (YOLOv8)</th>
+                <th>Conf</th>
+                <th>Координаты (WGS-84)</th>
+                <th>Тип / Угроза</th>
+              </tr>
+            </thead>
+            <tbody id="yolo-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-amber" style="margin-top: 1rem; font-size:0.84rem;">
+          <strong>Взаимодействие с Этапом 5 и 7:</strong> Найденные координаты препятствий (Опора ЛЭП, Вышка) немедленно передаются в блок <em>«Создание локальной карты»</em> и <em>«Принятие решений»</em> для корректировки траектории.
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(4);
+
+    const canvas = document.getElementById('yolo-canvas');
+    const ctx = canvas.getContext('2d');
+    let running = true;
+    let scrollY = 0;
+
+    // Виртуальные объекты на поле
+    const worldObjects = [
+      { id: 1, cls: 'Opora_LEP (Препятствие)', conf: 0.94, w: 66, h: 66, x: 420, baseY: 90, color: '#ef4444', threat: 'Высокая (Обход!)', type: 'tower' },
+      { id: 2, cls: 'Traktor_Agrotech', conf: 0.89, w: 58, h: 38, x: 185, baseY: 210, color: '#38bdf8', threat: 'Динамич. объект', type: 'tractor' },
+      { id: 3, cls: 'Zona_Fitostressa', conf: 0.78, w: 110, h: 74, x: 360, baseY: 280, color: '#f59e0b', threat: 'Аномалия NDVI', type: 'stress' },
+      { id: 4, cls: 'Lesopolosa (Препятствие)', conf: 0.86, w: 92, h: 64, x: 75, baseY: 115, color: '#ef4444', threat: 'Средняя (H=16м)', type: 'trees' },
+      { id: 5, cls: 'Kustarnik_Mal', conf: 0.41, w: 40, h: 36, x: 515, baseY: 240, color: '#94a3b8', threat: 'Низкий риск', type: 'bush' }
+    ];
+
+    const baseLat = 51.6680, baseLon = 71.0150;
+
+    document.getElementById('btn-yolo-toggle').addEventListener('click', e => {
+      running = !running;
+      e.target.textContent = running ? '⏸ Пауза потока' : '▶ Продолжить поток';
+    });
+
+    function drawYolo() {
+      if (running) scrollY = (scrollY + 1.15) % 420;
+      const confThresh = parseFloat(document.getElementById('yolo-conf').value);
+      document.getElementById('conf-val').textContent = confThresh.toFixed(2);
+
+      // Фон агрополя
+      ctx.fillStyle = '#1f4428';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Движущиеся борозды поля
+      ctx.strokeStyle = 'rgba(52, 211, 153, 0.14)';
+      ctx.lineWidth = 3;
+      for (let y = -40; y < canvas.height + 60; y += 28) {
+        const yy = (y + scrollY) % (canvas.height + 60) - 30;
+        ctx.beginPath();
+        ctx.moveTo(0, yy);
+        ctx.lineTo(canvas.width, yy - 18);
+        ctx.stroke();
+      }
+
+      // Дорога
+      ctx.fillStyle = '#6b5e4c';
+      ctx.fillRect(160, 0, 62, canvas.height);
+
+      const activeDetections = [];
+
+      worldObjects.forEach(obj => {
+        const cy = ((obj.baseY + scrollY) % 420) - 40;
+        if (cy < -60 || cy > canvas.height + 40) return;
+
+        // Рисуем сам визуальный объект на земле
+        ctx.save();
+        if (obj.type === 'tower') {
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(obj.x - 16, cy - 16, 32, 32);
+          ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+          ctx.strokeRect(obj.x - 16, cy - 16, 32, 32);
+        } else if (obj.type === 'tractor') {
+          ctx.fillStyle = '#dc2626';
+          ctx.fillRect(obj.x - 18, cy - 11, 36, 22);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(obj.x - 6, cy - 7, 12, 14);
+        } else if (obj.type === 'stress') {
+          const g = ctx.createRadialGradient(obj.x, cy, 5, obj.x, cy, 48);
+          g.addColorStop(0, 'rgba(245, 158, 11, 0.78)');
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.ellipse(obj.x, cy, 50, 32, 0.2, 0, Math.PI * 2); ctx.fill();
+        } else if (obj.type === 'trees') {
+          ctx.fillStyle = '#14532d';
+          ctx.beginPath(); ctx.arc(obj.x - 16, cy, 20, 0, Math.PI * 2); ctx.arc(obj.x + 16, cy + 5, 22, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.fillStyle = '#166534';
+          ctx.beginPath(); ctx.arc(obj.x, cy, 12, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
+        // Фильтр по confidence threshold
+        if (obj.conf >= confThresh) {
+          const bx = obj.x - obj.w / 2;
+          const by = cy - obj.h / 2;
+          ctx.strokeStyle = obj.color;
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(bx, by, obj.w, obj.h);
+
+          const label = `${obj.cls.split(' ')[0]} ${obj.conf.toFixed(2)}`;
+          ctx.font = 'bold 11px JetBrains Mono';
+          const tw = ctx.measureText(label).width + 10;
+          ctx.fillStyle = obj.color;
+          ctx.fillRect(bx, by - 19, tw, 19);
+          ctx.fillStyle = '#090e1a';
+          ctx.fillText(label, bx + 5, by - 5);
+
+          // Расчет ГИС-координат объекта (WGS-84)
+          const dLat = ((180 - cy) * 0.28) / 111320;
+          const dLon = ((obj.x - 310) * 0.28) / (111320 * Math.cos(deg2rad(baseLat)));
+          activeDetections.push({
+            ...obj,
+            lat: baseLat + dLat + scrollY * 0.000002,
+            lon: baseLon + dLon
+          });
+        }
+      });
+
+      // Телеметрия поверх кадра
+      ctx.fillStyle = 'rgba(11, 17, 32, 0.78)';
+      ctx.fillRect(10, 10, 330, 26);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 11.5px JetBrains Mono';
+      ctx.fillText(`YOLOv8n | H=60m | Lat:${baseLat.toFixed(4)} Lon:${baseLon.toFixed(4)}`, 18, 27);
+
+      // Обновляем счетчики и таблицу
+      document.getElementById('yolo-count').textContent = activeDetections.length;
+      document.getElementById('yolo-obs-cnt').textContent = activeDetections.filter(d => d.color === '#ef4444').length;
+
+      document.getElementById('yolo-tbody').innerHTML = activeDetections.length ? activeDetections.map(d => `
+        <tr>
+          <td><strong style="color:${d.color}">${d.cls}</strong></td>
+          <td><code>${(d.conf * 100).toFixed(0)}%</code></td>
+          <td><code>${d.lat.toFixed(5)}°, ${d.lon.toFixed(5)}°</code></td>
+          <td><span class="badge ${d.color === '#ef4444' ? 'badge-red' : 'badge-amber'}">${d.threat}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Нет объектов выше порога уверенности</td></tr>';
+
+      requestAnimationFrame(drawYolo);
+    }
+    drawYolo();
+  </script>
+</body>
+</html>

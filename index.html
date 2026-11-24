@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Проектирование интеллектуальных систем управления — Главная</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-kicker">Интеллектуальная система управления движением дрона (БПЛА) и мониторинга NDVI</div>
+      <h1>Проектирование интеллектуальных систем управления</h1>
+      <p>
+        Комплексное веб-приложение, структурированное в виде <strong>7 взаимосвязанных этапов</strong>.
+        Система собирает и описывает входные данные и датасет, выполняет предобработку и фильтрацию,
+        строит оптимальные траектории в реальном регионе (Агрополя Казахстана), управляет полетом,
+        распознает объекты (YOLOv8), строит 2D/3D-карту (SLAM), преобразует координаты (WGS-84 → ENU),
+        принимает решения по блок-схеме и рассчитывает индекс фитостресса <strong>NDVI</strong>.
+      </p>
+      <div class="hero-tasks" style="margin-top: 1.15rem;">
+        <a href="stage1.html" class="btn btn-primary">Начать с Этапа 1: Подготовка данных →</a>
+        <a href="#figure1" class="btn">Интерактивная схема (Рисунок 1)</a>
+        <a href="#ai-methods" class="btn">Демонстрация 5 методов ИИ</a>
+        <a href="stage7.html" class="btn btn-success">Этап 7: Блок-схема и NDVI</a>
+        <a href="UAV_Intelligent_Control_Presentation.pptx" download class="btn btn-amber">📥 Скачать презентацию (.pptx)</a>
+      </div>
+    </section>
+
+    <!-- Рисунок 1 -->
+    <h2 id="figure1" class="section-title">1. Архитектура 7-этапной системы (Рисунок 1)</h2>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Интерактивная структурная схема интеллектуальной системы управления БПЛА</div>
+          <div class="card-subtitle">Нажмите на любой блок «Этап 1» … «Этап 7», чтобы перейти на соответствующую веб-страницу с моделированием</div>
+        </div>
+        <span class="badge">Рисунок 1 • Кликабельные этапы</span>
+      </div>
+
+      <div class="diagram-container">
+        <svg viewBox="0 0 1120 620" width="100%" style="min-width: 860px; height: auto; font-family: Inter, sans-serif;">
+          <defs>
+            <marker id="arr-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+            </marker>
+            <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#f87171" />
+            </marker>
+            <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399" />
+            </marker>
+            <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24" />
+            </marker>
+          </defs>
+
+          <!-- Background zones -->
+          <rect x="10" y="10" width="1100" height="600" rx="14" fill="#0f172a" stroke="#1e293b" stroke-width="2" />
+
+          <!-- Входы -->
+          <g>
+            <rect x="260" y="24" width="240" height="52" rx="10" fill="#1e3a5f" stroke="#38bdf8" stroke-width="2" />
+            <text x="380" y="46" text-anchor="middle" fill="#e0f2fe" font-size="13" font-weight="700">📷 Вход: поток данных</text>
+            <text x="380" y="64" text-anchor="middle" fill="#bae6fd" font-size="12">с камеры (RGB / NIR)</text>
+
+            <rect x="26" y="128" width="175" height="66" rx="10" fill="#134e4a" stroke="#2dd4bf" stroke-width="2" />
+            <text x="113" y="156" text-anchor="middle" fill="#ccfbf1" font-size="13" font-weight="700">Вход: поток данных</text>
+            <text x="113" y="176" text-anchor="middle" fill="#99f6e4" font-size="12">с камеры</text>
+
+            <rect x="26" y="346" width="175" height="72" rx="10" fill="#134e4a" stroke="#2dd4bf" stroke-width="2" />
+            <text x="113" y="372" text-anchor="middle" fill="#ccfbf1" font-size="13" font-weight="700">🗺 Вход: карта,</text>
+            <text x="113" y="390" text-anchor="middle" fill="#ccfbf1" font-size="13" font-weight="700">позиция, цель</text>
+            <text x="113" y="408" text-anchor="middle" fill="#99f6e4" font-size="11">(ДЗЗ и полигон)</text>
+
+            <rect x="690" y="534" width="235" height="64" rx="10" fill="#1e3a5f" stroke="#38bdf8" stroke-width="2" />
+            <text x="807" y="556" text-anchor="middle" fill="#e0f2fe" font-size="12.5" font-weight="700">📍 Вход: GPS, препятствия</text>
+            <text x="807" y="574" text-anchor="middle" fill="#34d399" font-size="12.5" font-weight="700">Выход: прогноз, обучение</text>
+            <text x="807" y="590" text-anchor="middle" fill="#94a3b8" font-size="10.5">(телеметрия и ИИ-решение)</text>
+          </g>
+
+          <!-- Создание локальной карты -->
+          <g>
+            <rect x="855" y="28" width="215" height="76" rx="12" fill="#7c2d12" stroke="#fb923c" stroke-width="2" />
+            <text x="962" y="60" text-anchor="middle" fill="#ffedd5" font-size="14" font-weight="700">Создание локальной</text>
+            <text x="962" y="80" text-anchor="middle" fill="#ffedd5" font-size="14" font-weight="700">карты (SLAM + ГИС)</text>
+          </g>
+
+          <!-- Этап 1 -->
+          <a href="stage1.html" class="diagram-node">
+            <rect x="285" y="114" width="175" height="90" rx="12" fill="#991b1b" stroke="#f87171" stroke-width="2.5" />
+            <text x="372" y="140" text-anchor="middle" fill="#fee2e2" font-size="14" font-weight="800">Этап 1</text>
+            <text x="372" y="162" text-anchor="middle" fill="#fecaca" font-size="12.5" font-weight="600">Подготовка</text>
+            <text x="372" y="180" text-anchor="middle" fill="#fecaca" font-size="12.5" font-weight="600">данных и ПО</text>
+            <text x="372" y="196" text-anchor="middle" fill="#fca5a5" font-size="10">OpenCV • Фильтрация</text>
+          </a>
+
+          <!-- Этап 4 -->
+          <a href="stage4.html" class="diagram-node">
+            <rect x="520" y="34" width="185" height="84" rx="12" fill="#9a3412" stroke="#fb923c" stroke-width="2.5" />
+            <text x="612" y="60" text-anchor="middle" fill="#ffedd5" font-size="14" font-weight="800">Этап 4</text>
+            <text x="612" y="80" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="600">Обнаружение</text>
+            <text x="612" y="98" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="600">объектов (YOLOv8)</text>
+          </a>
+
+          <!-- Этап 5 -->
+          <a href="stage5.html" class="diagram-node">
+            <rect x="695" y="145" width="185" height="84" rx="12" fill="#9a3412" stroke="#fb923c" stroke-width="2.5" />
+            <text x="787" y="172" text-anchor="middle" fill="#ffedd5" font-size="14" font-weight="800">Этап 5</text>
+            <text x="787" y="192" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="600">Построение</text>
+            <text x="787" y="210" text-anchor="middle" fill="#fed7aa" font-size="13" font-weight="600">карты (2D/3D SLAM)</text>
+          </a>
+
+          <!-- Этап 6 -->
+          <a href="stage6.html" class="diagram-node">
+            <rect x="920" y="265" width="165" height="82" rx="12" fill="#854d0e" stroke="#facc15" stroke-width="2.5" />
+            <text x="1002" y="290" text-anchor="middle" fill="#fef9c3" font-size="14" font-weight="800">Этап 6</text>
+            <text x="1002" y="310" text-anchor="middle" fill="#fef08a" font-size="13" font-weight="600">Изменение</text>
+            <text x="1002" y="328" text-anchor="middle" fill="#fef08a" font-size="13" font-weight="600">координат (ENU)</text>
+          </a>
+
+          <!-- Центральная шина: Интеллектуальная информационная система -->
+          <rect x="200" y="274" width="665" height="58" rx="12" fill="#831843" stroke="#f472b6" stroke-width="2.5" />
+          <text x="532" y="309" text-anchor="middle" fill="#fdf2f8" font-size="18" font-weight="800">Интеллектуальная информационная система</text>
+
+          <!-- Этап 2 -->
+          <a href="stage2.html" class="diagram-node">
+            <rect x="285" y="388" width="185" height="84" rx="12" fill="#3f6212" stroke="#a3e635" stroke-width="2.5" />
+            <text x="377" y="414" text-anchor="middle" fill="#ecfccb" font-size="14" font-weight="800">Этап 2</text>
+            <text x="377" y="434" text-anchor="middle" fill="#d9f99d" font-size="13" font-weight="600">Генерация</text>
+            <text x="377" y="452" text-anchor="middle" fill="#d9f99d" font-size="13" font-weight="600">траектории (А* / RRT)</text>
+          </a>
+
+          <!-- Этап 3 -->
+          <a href="stage3.html" class="diagram-node">
+            <rect x="510" y="388" width="185" height="84" rx="12" fill="#854d0e" stroke="#facc15" stroke-width="2.5" />
+            <text x="602" y="414" text-anchor="middle" fill="#fef9c3" font-size="14" font-weight="800">Этап 3</text>
+            <text x="602" y="434" text-anchor="middle" fill="#fef08a" font-size="13" font-weight="600">Управление</text>
+            <text x="602" y="452" text-anchor="middle" fill="#fef08a" font-size="13" font-weight="600">полетом (PID / PPO)</text>
+          </a>
+
+          <!-- Этап 7 -->
+          <a href="stage7.html" class="diagram-node">
+            <rect x="720" y="388" width="180" height="84" rx="12" fill="#991b1b" stroke="#f87171" stroke-width="2.5" />
+            <text x="810" y="414" text-anchor="middle" fill="#fee2e2" font-size="14" font-weight="800">Этап 7</text>
+            <text x="810" y="434" text-anchor="middle" fill="#fecaca" font-size="13" font-weight="600">Принятие решений</text>
+            <text x="810" y="452" text-anchor="middle" fill="#fca5a5" font-size="11.5">+ Расчет NDVI</text>
+          </a>
+
+          <!-- Нижняя шина: Интеллектуальное управление -->
+          <rect x="200" y="528" width="445" height="58" rx="12" fill="#075985" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="422" y="563" text-anchor="middle" fill="#e0f2fe" font-size="17" font-weight="800">ИНТЕЛЛЕКТУАЛЬНОЕ УПРАВЛЕНИЕ</text>
+
+          <!-- Стрелки и подписи (по Рисунку 1) -->
+          <!-- Вход камеры верх -> Этап 1 и Этап 4 -->
+          <path d="M 380 76 L 380 112" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-blue)" />
+          <path d="M 500 50 L 518 65" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-blue)" />
+          <text x="315" y="100" fill="#94a3b8" font-size="11" font-style="italic">Desired functionality</text>
+
+          <!-- Левый вход камеры -> Этап 1 -->
+          <path d="M 201 160 L 283 160" stroke="#34d399" stroke-width="2" marker-end="url(#arr-green)" />
+
+          <!-- Этап 1 <-> ИИС -->
+          <path d="M 355 204 L 355 272" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)" />
+          <path d="M 390 274 L 390 206" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)" />
+          <text x="275" y="244" fill="#cbd5e1" font-size="11">Documentation</text>
+
+          <!-- Этап 4 <-> ИИС -->
+          <path d="M 580 118 L 580 272" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <path d="M 620 274 L 620 120" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="492" y="192" fill="#cbd5e1" font-size="11">Existing</text>
+          <text x="492" y="206" fill="#cbd5e1" font-size="11">documentation</text>
+
+          <!-- Этап 4 -> Локальная карта -->
+          <path d="M 705 66 L 853 66" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="778" y="54" text-anchor="middle" fill="#fcd34d" font-size="11">Progress reports</text>
+
+          <!-- Этап 5 <-> Локальная карта и ИИС -->
+          <path d="M 880 160 L 920 106" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="782" y="132" fill="#cbd5e1" font-size="10.5">необходимые ресурсы</text>
+          <path d="M 760 229 L 760 272" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <path d="M 800 274 L 800 231" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="688" y="254" fill="#cbd5e1" font-size="11">Existing Models</text>
+
+          <!-- Локальная карта <-> Этап 6 -->
+          <path d="M 1002 104 L 1002 263" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="1012" y="185" fill="#fcd34d" font-size="11">ОТЧЕТЫ</text>
+          <text x="1012" y="199" fill="#cbd5e1" font-size="10.5">Progress reports</text>
+
+          <!-- Этап 6 <-> ИИС -->
+          <path d="M 920 303 L 867 303" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+
+          <!-- Карта/позиция/цель -> Этап 2 и ИУ -->
+          <path d="M 201 384 L 283 416" stroke="#34d399" stroke-width="2" marker-end="url(#arr-green)" />
+          <path d="M 113 418 L 113 557 L 198 557" stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#arr-green)" />
+          <text x="208" y="510" fill="#cbd5e1" font-size="10.5">Библиотеки, системные</text>
+          <text x="208" y="523" fill="#cbd5e1" font-size="10.5">характеристики</text>
+
+          <!-- ИИС <-> Этап 2 -->
+          <path d="M 355 332 L 355 386" stroke="#a3e635" stroke-width="2" marker-end="url(#arr-green)" />
+          <path d="M 390 388 L 390 334" stroke="#a3e635" stroke-width="2" marker-end="url(#arr-green)" />
+          <text x="400" y="355" fill="#cbd5e1" font-size="11">Version</text>
+          <text x="400" y="368" fill="#cbd5e1" font-size="11">specs</text>
+
+          <!-- ИИС <-> Этап 3 -->
+          <path d="M 580 332 L 580 386" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <path d="M 620 388 L 620 334" stroke="#fbbf24" stroke-width="2" marker-end="url(#arr-amber)" />
+          <text x="515" y="362" fill="#cbd5e1" font-size="11">Отчеты</text>
+          <text x="630" y="355" fill="#cbd5e1" font-size="11">Design</text>
+          <text x="630" y="368" fill="#cbd5e1" font-size="11">specs</text>
+
+          <!-- ИИС <-> Этап 7 -->
+          <path d="M 790 332 L 790 386" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)" />
+          <path d="M 825 388 L 825 334" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)" />
+          <text x="842" y="352" fill="#cbd5e1" font-size="10.5">System Advantages</text>
+          <text x="842" y="366" fill="#cbd5e1" font-size="10.5">системные ограничения</text>
+
+          <!-- Этап 2, 3, 7 -> Интеллектуальное управление -->
+          <path d="M 377 472 L 377 526" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-blue)" />
+          <path d="M 602 472 L 560 526" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-blue)" />
+          <text x="460" y="498" fill="#cbd5e1" font-size="10.5">Маневры в реальном времени</text>
+          <path d="M 740 472 L 647 545" stroke="#f87171" stroke-width="2" marker-end="url(#arr-red)" />
+          <text x="735" y="502" fill="#cbd5e1" font-size="10.5">Аппаратные характеристики</text>
+
+          <!-- GPS/препятствия <-> Этап 7 -->
+          <path d="M 820 534 L 820 474" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-blue)" />
+          <path d="M 900 430 L 980 430" stroke="#34d399" stroke-width="2" marker-end="url(#arr-green)" />
+          <text x="986" y="434" fill="#34d399" font-size="11">Спецификация</text>
+        </svg>
+      </div>
+
+      <!-- Карточки-кнопки 7 этапов -->
+      <div class="grid grid-4" style="margin-top: 1.25rem;">
+        <a href="stage1.html" class="card" style="text-decoration:none; border-color: rgba(248,113,113,0.45);">
+          <div class="badge badge-red" style="margin-bottom:0.5rem;">Этап 1</div>
+          <div class="card-title">Подготовка данных и ПО</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Сбор данных, OpenCV фильтрация, нормализация и коррекция GPS</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage2.html" class="card" style="text-decoration:none; border-color: rgba(163,230,53,0.45);">
+          <div class="badge badge-green" style="margin-bottom:0.5rem;">Этап 2</div>
+          <div class="card-title">Генерация траектории</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Круговая, восьмеричная, произвольная, обход препятствий (Казахстан)</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage3.html" class="card" style="text-decoration:none; border-color: rgba(250,204,21,0.45);">
+          <div class="badge badge-amber" style="margin-bottom:0.5rem;">Этап 3</div>
+          <div class="card-title">Управление полетом</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Движение в реальном времени: алгоритмы PID и PPO, маневрирование</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage4.html" class="card" style="text-decoration:none; border-color: rgba(251,146,60,0.45);">
+          <div class="badge badge-amber" style="margin-bottom:0.5rem;">Этап 4</div>
+          <div class="card-title">Обнаружение объектов</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Распознавание с камеры, нейросеть YOLOv8, координаты ГИС</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage5.html" class="card" style="text-decoration:none; border-color: rgba(251,146,60,0.45);">
+          <div class="badge badge-amber" style="margin-bottom:0.5rem;">Этап 5</div>
+          <div class="card-title">Создание карты</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Алгоритм SLAM, построение 2D/3D карты, дрон и траектория</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage6.html" class="card" style="text-decoration:none; border-color: rgba(250,204,21,0.45);">
+          <div class="badge badge-amber" style="margin-bottom:0.5rem;">Этап 6</div>
+          <div class="card-title">Изменение координат</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Геодезические расчеты WGS-84 → ECEF → ENU и точность</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+        <a href="stage7.html" class="card" style="text-decoration:none; border-color: rgba(56,189,248,0.55); grid-column: span 2;">
+          <div class="badge" style="margin-bottom:0.5rem;">Этап 7 • Итоги</div>
+          <div class="card-title">Принятие решений, расчет NDVI (Рис. 2, 3) и Результаты</div>
+          <div class="card-subtitle" style="margin-top:0.35rem;">Выполнение программы по блок-схеме, анализ фитостресса NDVI, прогнозирование и завершенная карта</div>
+          <div style="margin-top:0.75rem; font-size:0.84rem; color:var(--primary); font-weight:600;">Открыть страницу →</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Раздел 2: Сбор входных данных и использование Датасет -->
+    <h2 class="section-title">2. Сбор входных данных, использование Датасет и особенности применения</h2>
+    <div class="grid grid-3">
+      <div class="card">
+        <div class="badge" style="margin-bottom:0.65rem;">Вход 1 • Оптический + Мультиспектр</div>
+        <div class="card-title">Поток данных с камеры</div>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin: 0.5rem 0;">
+          Непрерывный видеопоток 1920×1080 @ 30 FPS (RGB-камера) + мультиспектральные каналы <strong>Red (660 нм)</strong> и <strong>NIR (840 нм)</strong> для вычисления NDVI и детекции препятствий.
+        </p>
+        <div class="callout" style="font-size:0.84rem;">
+          <strong>Особенности применения:</strong> наличие вибрационного смаза (motion blur), перепадов освещенности и теней от облаков. Требует обязательной фильтрации OpenCV (Gaussian Blur + CLAHE) и временной синхронизации с IMU.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="badge badge-green" style="margin-bottom:0.65rem;">Вход 2 • Пространственный контекст</div>
+        <div class="card-title">Карта, положение, цель</div>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin: 0.5rem 0;">
+          Базовые ГИС-подложки (ортофотопланы ДЗЗ, ЦМР высот), границы агрополигонов Казахстана (Шортанды / Илийский район), стартовая точка взлета (Home), целевые зоны облета и статические препятствия (ЛЭП, мачты, лесополосы).
+        </p>
+        <div class="callout callout-green" style="font-size:0.84rem;">
+          <strong>Особенности применения:</strong> используется алгоритмами генерации траектории (Этап 2) и SLAM-картирования (Этап 5) для построения безопасного маршрута без коллизий.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="badge badge-amber" style="margin-bottom:0.65rem;">Вход 3 • Навигационная телеметрия</div>
+        <div class="card-title">Данные GPS / ГЛОНАСС + IMU</div>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin: 0.5rem 0;">
+          Поток пакетов NMEA/UBX с частотой 10 Гц: геодезическая широта <code>Lat</code>, долгота <code>Lon</code>, высота над уровнем моря <code>Alt</code>, число спутников, геометрический фактор <code>HDOP</code>, углы крена/тангажа/рыскания.
+        </p>
+        <div class="callout callout-amber" style="font-size:0.84rem;">
+          <strong>Особенности применения:</strong> сырой GPS имеет дрейф ±2.5–4.5 м и выбросы (multipath). Корректируется Расширенным фильтром Калмана (EKF) и переводится в локальные метры ENU (Этап 6).
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 1.25rem;">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Использование Датасет (Dataset) в системе интеллектуального управления</div>
+          <div class="card-subtitle">Состав, разметка, разделение выборки и назначение для каждого алгоритма ИИ</div>
+        </div>
+        <span class="badge badge-purple">Объем выборки: 12 400 кадров + 4 800 треков</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Модуль датасета</th>
+              <th>Источник / Формат</th>
+              <th>Объем и структура</th>
+              <th>Особенность применения в модели</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>AgriVision-KZ (RGB + NIR)</strong></td>
+              <td>Мультиспектральная аэросъемка, PNG/GeoTIFF 16-bit</td>
+              <td>6 200 пар изображений (Red 660 нм, NIR 840 нм), разметка 4 уровней фитостресса</td>
+              <td>Обучение Random Forest / XGBoost и пороговой классификации NDVI для управления моментом съемки</td>
+            </tr>
+            <tr>
+              <td><strong>UAV-VisDrone Obstacles</strong></td>
+              <td>Видеопоток с бортовой камеры, формат YOLO txt + JPEG</td>
+              <td>6 200 кадров, 18 400 bbox (ЛЭП, деревья, техника, вышки, здания)</td>
+              <td>Обучение нейросети YOLOv8n для распознавания препятствий в реальном времени (Этап 4)</td>
+            </tr>
+            <tr>
+              <td><strong>FlightLog Telemetry (GPS+IMU)</strong></td>
+              <td>Полетные логи БПЛА (CSV / ROSBag, 10 Гц)</td>
+              <td>4 800 временных последовательностей по 120 сек (порывы ветра, шум GPS)</td>
+              <td>Обучение гибридной модели CNN–LSTM + EKF для прогноза траектории и компенсации дрейфа</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Раздел 3: 5 классов методов ИИ -->
+    <h2 id="ai-methods" class="section-title">3. Демонстрация использования методов ИИ и анализ результатов</h2>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Сравнительная таблица методов искусственного интеллекта (из задания)</div>
+          <div class="card-subtitle">Выберите класс метода ИИ во вкладках ниже для запуска интерактивной симуляции и анализа результатов</div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-bottom: 1.5rem;">
+        <table>
+          <thead>
+            <tr>
+              <th>№</th>
+              <th>Класс методов ИИ</th>
+              <th>Используемый алгоритм</th>
+              <th>Назначение / Тип задачи</th>
+              <th>Результат в нашем проекте</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><strong>Машинное обучение (ML)</strong></td>
+              <td>Линейная/полиномиальная регрессия, SVM</td>
+              <td>Прогнозирование параметров и трендов</td>
+              <td><span class="badge badge-green">R² = 0.94 (Poly-3 / SVR)</span></td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><strong>Глубокое обучение (DL)</strong></td>
+              <td>Сверточные и рекуррентные нейронные сети (CNN–LSTM)</td>
+              <td>Анализ временных рядов, прогноз динамики БПЛА и природных процессов</td>
+              <td><span class="badge badge-green">MAE = 0.42 м/с, MAPE = 3.1%</span></td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><strong>Деревья решений</strong></td>
+              <td>Decision Tree, Random Forest, XGBoost</td>
+              <td>Классификация данных ДЗЗ и ГИС, выбор оптимальных параметров</td>
+              <td><span class="badge badge-green">F1 = 0.95 (XGBoost)</span></td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><strong>Методы нечеткой логики (Fuzzy Logic)</strong></td>
+              <td>Нечеткие правила и системы Мамдани</td>
+              <td>Оценка неопределенности, моделирование экспертных решений</td>
+              <td><span class="badge">Дефаззификация 0..100%</span></td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><strong>Гибридные подходы (AI + EKF)</strong></td>
+              <td>CNN–LSTM + Расширенный фильтр Калмана (EKF)</td>
+              <td>Повышение устойчивости и точности прогнозных моделей</td>
+              <td><span class="badge badge-green">Снижение RMSE в 2.8×</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Вкладки демонстрации 5 методов -->
+      <div class="tabs" id="ai-tabs">
+        <button class="tab-btn active" data-tab="tab-ml">1. ML (Регрессия, SVM)</button>
+        <button class="tab-btn" data-tab="tab-dl">2. DL (CNN–LSTM)</button>
+        <button class="tab-btn" data-tab="tab-trees">3. Деревья (DT, RF, XGBoost)</button>
+        <button class="tab-btn" data-tab="tab-fuzzy">4. Fuzzy Logic (Мамдани)</button>
+        <button class="tab-btn" data-tab="tab-hybrid">5. Гибрид (CNN–LSTM + EKF)</button>
+      </div>
+
+      <!-- Tab 1: ML -->
+      <div id="tab-ml" class="tab-panel active">
+        <div class="grid grid-2">
+          <div>
+            <h3 style="margin-bottom:0.5rem;">Прогноз энергопотребления БПЛА от скорости ветра</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              Демонстрируется прогнозирование расхода мощности (Вт) и остаточного времени полета в зависимости от встречного ветра (0–15 м/с) на основе телеметрии датасета.
+            </p>
+            <div class="controls-row">
+              <button class="btn active-btn ml-btn" data-model="linear">Линейная регрессия</button>
+              <button class="btn ml-btn" data-model="poly">Полиномиальная (степень 3)</button>
+              <button class="btn ml-btn" data-model="svm">SVM (RBF-ядро)</button>
+            </div>
+            <div class="grid grid-3" style="gap:0.75rem; margin-bottom:1rem;">
+              <div class="kpi-card">
+                <div class="kpi-label">R² Score</div>
+                <div class="kpi-val" id="ml-r2">0.842</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">RMSE (Вт)</div>
+                <div class="kpi-val" id="ml-rmse">21.4</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Оценка модели</div>
+                <div class="kpi-val" id="ml-verdict" style="font-size:1rem;">Недообучение</div>
+              </div>
+            </div>
+            <div class="callout" id="ml-analysis">
+              <strong>Анализ результата:</strong> Линейная модель не учитывает квадратичный рост аэродинамического сопротивления при сильном ветре (>9 м/с), занижая реальный расход энергии.
+            </div>
+          </div>
+          <div class="card" style="background:var(--bg-surface);">
+            <div class="chart-box"><canvas id="chart-ml"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: DL -->
+      <div id="tab-dl" class="tab-panel">
+        <div class="grid grid-2">
+          <div>
+            <h3 style="margin-bottom:0.5rem;">CNN–LSTM: Анализ временных рядов и прогноз динамики БПЛА</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              Сверточные слои (1D-CNN) извлекают локальные паттерны порывов ветра из телеметрии и кадров, а рекуррентный блок LSTM предсказывает скорость воздушного потока и вертикальное отклонение дрона на 15 секунд вперед.
+            </p>
+            <div class="controls-row">
+              <button class="btn btn-primary" id="btn-dl-regen">↻ Смоделировать новый порыв ветра</button>
+            </div>
+            <div class="grid grid-3" style="gap:0.75rem; margin-bottom:1rem;">
+              <div class="kpi-card">
+                <div class="kpi-label">MAE скорости</div>
+                <div class="kpi-val" id="dl-mae">0.42 м/с</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Горизонт прогноза</div>
+                <div class="kpi-val">15 сек</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">MAPE</div>
+                <div class="kpi-val" id="dl-mape">3.1%</div>
+              </div>
+            </div>
+            <div class="callout callout-green">
+              <strong>Анализ результата:</strong> Архитектура CNN–LSTM улавливает нелинейные тренды колебаний ветра с запаздыванием менее 0.4 сек, что позволяет системе управления (Этап 3) заранее компенсировать снос дрона.
+            </div>
+          </div>
+          <div class="card" style="background:var(--bg-surface);">
+            <div class="chart-box"><canvas id="chart-dl"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Trees -->
+      <div id="tab-trees" class="tab-panel">
+        <div class="grid grid-2">
+          <div>
+            <h3 style="margin-bottom:0.5rem;">Классификация данных ДЗЗ и ГИС: DT vs Random Forest vs XGBoost</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              Классификация пикселей мультиспектральных снимков и ГИС-слоев на 4 класса состояния агрополя. Переключите алгоритм для сравнения точности и важности признаков.
+            </p>
+            <div class="controls-row">
+              <button class="btn tree-btn" data-tree="dt">Decision Tree</button>
+              <button class="btn tree-btn" data-tree="rf">Random Forest</button>
+              <button class="btn active-btn tree-btn" data-tree="xgb">XGBoost (Град. бустинг)</button>
+            </div>
+            <div class="grid grid-3" style="gap:0.75rem; margin-bottom:1rem;">
+              <div class="kpi-card">
+                <div class="kpi-label">Accuracy</div>
+                <div class="kpi-val" id="tree-acc">95.8%</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Macro F1-Score</div>
+                <div class="kpi-val" id="tree-f1">0.952</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Инференс (кадр)</div>
+                <div class="kpi-val" id="tree-time">6.4 мс</div>
+              </div>
+            </div>
+            <div class="callout" id="tree-analysis">
+              <strong>Анализ результата:</strong> XGBoost достигает максимального качества (F1 = 0.952) за счет последовательного исправления ошибок на пограничных зонах между легким и средним фитострессом. Главные признаки — каналы NIR и Red.
+            </div>
+          </div>
+          <div class="card" style="background:var(--bg-surface);">
+            <div class="chart-box"><canvas id="chart-trees"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Fuzzy Logic -->
+      <div id="tab-fuzzy" class="tab-panel">
+        <div class="grid grid-2">
+          <div>
+            <h3 style="margin-bottom:0.5rem;">Система нечеткого вывода Мамдани (Оценка риска миссии)</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              Моделирование экспертных решений при неточных или зашумленных показаниях датчиков. Настройте входные переменные и наблюдайте срабатывание нечетких правил.
+            </p>
+            <div class="control-group">
+              <label><span>Скорость ветра (м/с):</span> <strong id="fz-wind-val">6.0 м/с</strong></label>
+              <input type="range" id="fz-wind" min="0" max="18" step="0.5" value="6.0" />
+            </div>
+            <div class="control-group">
+              <label><span>Заряд батареи (%):</span> <strong id="fz-bat-val">65%</strong></label>
+              <input type="range" id="fz-bat" min="10" max="100" step="1" value="65" />
+            </div>
+            <div class="control-group">
+              <label><span>Риск препятствия / аномалии (%):</span> <strong id="fz-obs-val">25%</strong></label>
+              <input type="range" id="fz-obs" min="0" max="100" step="1" value="25" />
+            </div>
+            <div class="callout callout-amber" id="fz-rules-box" style="font-size:0.84rem;"></div>
+          </div>
+          <div class="card" style="background:var(--bg-surface); display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div class="card-title" style="margin-bottom:0.75rem;">Результат дефаззификации (Центр тяжести)</div>
+              <div class="grid grid-2" style="gap:0.75rem; margin-bottom:1rem;">
+                <div class="kpi-card">
+                  <div class="kpi-label">Индекс угрозы</div>
+                  <div class="kpi-val" id="fz-risk">31.5%</div>
+                </div>
+                <div class="kpi-card">
+                  <div class="kpi-label">Экспертное решение</div>
+                  <div class="kpi-val" id="fz-decision" style="font-size:0.95rem; color:#34d399;">Штатный полет</div>
+                </div>
+              </div>
+            </div>
+            <div class="chart-box" style="height:220px;"><canvas id="chart-fuzzy"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Hybrid CNN-LSTM + EKF -->
+      <div id="tab-hybrid" class="tab-panel">
+        <div class="grid grid-2">
+          <div>
+            <h3 style="margin-bottom:0.5rem;">Гибрид CNN–LSTM + Расширенный фильтр Калмана (EKF)</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-bottom:1rem;">
+              Интеграция нейросетевого прогноза (CNN–LSTM) в этап предсказания состояния EKF и коррекция нелинейных измерений (GPS + IMU). Демонстрирует устойчивость при сбоях и помехах GPS.
+            </p>
+            <div class="control-group">
+              <label><span>Уровень шума GPS / выбросов (м):</span> <strong id="ekf-noise-val">2.8 м</strong></label>
+              <input type="range" id="ekf-noise" min="0.5" max="6.0" step="0.1" value="2.8" />
+            </div>
+            <div class="grid grid-3" style="gap:0.75rem; margin-bottom:1rem;">
+              <div class="kpi-card">
+                <div class="kpi-label">RMSE Сырой GPS</div>
+                <div class="kpi-val" style="color:#f87171;" id="ekf-raw-rmse">2.95 м</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">RMSE CNN–LSTM</div>
+                <div class="kpi-val" style="color:#fbbf24;" id="ekf-dl-rmse">1.42 м</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">RMSE Гибрид EKF</div>
+                <div class="kpi-val" style="color:#34d399;" id="ekf-hyb-rmse">0.68 м</div>
+              </div>
+            </div>
+            <div class="callout callout-green">
+              <strong>Анализ результата:</strong> При резких выбросах GPS гибридная схема сглаживает скачки за счет матрицы ковариаций EKF и предсказания динамики БПЛА из CNN–LSTM, снижая ошибку позиционирования в ~2.8–4 раза.
+            </div>
+          </div>
+          <div class="card" style="background:var(--bg-surface);">
+            <div class="chart-box"><canvas id="chart-hybrid"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(0);
+    chartDefaults();
+
+    // Вкладки ИИ
+    document.querySelectorAll('#ai-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#ai-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // 1. ML Chart (Регрессия / SVM)
+    const windSpeeds = [0, 1.5, 3, 4.5, 6, 7.5, 9, 10.5, 12, 13.5, 15];
+    const actualPower = [182, 185, 193, 206, 224, 248, 279, 316, 362, 415, 476];
+    const mlModels = {
+      linear: {
+        label: 'Линейная регрессия',
+        data: windSpeeds.map(v => +(160 + 18.8 * v).toFixed(1)),
+        r2: '0.842', rmse: '34.8', verdict: 'Недообучение',
+        text: '<strong>Анализ:</strong> Линейная регрессия дает систематическую ошибку на краях диапазона (RMSE = 34.8 Вт), так как аэродинамическое сопротивление растет нелинейно (квадратично по скорости).'
+      },
+      poly: {
+        label: 'Полиномиальная регрессия (deg=3)',
+        data: windSpeeds.map(v => +(181.5 + 1.2 * v + 1.18 * v * v + 0.004 * v * v * v).toFixed(1)),
+        r2: '0.996', rmse: '4.1', verdict: 'Оптимально',
+        text: '<strong>Анализ:</strong> Полиномиальная модель точно воспроизводит физику квадратичного роста сопротивления воздуха (R² = 0.996, RMSE = 4.1 Вт).'
+      },
+      svm: {
+        label: 'SVM (SVR с RBF-ядром)',
+        data: windSpeeds.map(v => +(183 + 1.5 * v + 1.14 * v * v).toFixed(1)),
+        r2: '0.989', rmse: '6.8', verdict: 'Высокая робастность',
+        text: '<strong>Анализ:</strong> Метод опорных векторов (SVR) устойчив к одиночным выбросам датчиков тока и показывает R² = 0.989.'
+      }
+    };
+
+    const chartMl = new Chart(document.getElementById('chart-ml'), {
+      type: 'line',
+      data: {
+        labels: windSpeeds.map(v => v + ' м/с'),
+        datasets: [
+          { label: 'Фактический расход (Датасет)', data: actualPower, borderColor: '#38bdf8', backgroundColor: '#38bdf8', pointRadius: 4, borderWidth: 2 },
+          { label: mlModels.linear.label, data: mlModels.linear.data, borderColor: '#f59e0b', borderDash: [6, 4], borderWidth: 2.5, tension: 0.3 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Прогноз мощности БПЛА (Вт) от скорости ветра' } },
+        scales: { y: { title: { display: true, text: 'Мощность, Вт' } } }
+      }
+    });
+
+    document.querySelectorAll('.ml-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.ml-btn').forEach(x => x.classList.remove('active-btn'));
+        b.classList.add('active-btn');
+        const m = mlModels[b.dataset.model];
+        chartMl.data.datasets[1].label = m.label;
+        chartMl.data.datasets[1].data = m.data;
+        chartMl.update();
+        document.getElementById('ml-r2').textContent = m.r2;
+        document.getElementById('ml-rmse').textContent = m.rmse;
+        document.getElementById('ml-verdict').textContent = m.verdict;
+        document.getElementById('ml-analysis').innerHTML = m.text;
+      });
+    });
+
+    // 2. DL Chart (CNN-LSTM)
+    let dlPhase = 0.4;
+    function genDlData(phase) {
+      const labels = [], fact = [], pred = [];
+      for (let t = 0; t <= 30; t++) {
+        labels.push(t + 'с');
+        const val = 5.5 + 2.2 * Math.sin(t * 0.32 + phase) + 0.9 * Math.cos(t * 0.7 - phase);
+        fact.push(+val.toFixed(2));
+        const pVal = val + (Math.sin(t * 1.9 + phase) * 0.38);
+        pred.push(t >= 15 ? +pVal.toFixed(2) : null);
+      }
+      return { labels, fact, pred };
+    }
+    const initDl = genDlData(dlPhase);
+    const chartDl = new Chart(document.getElementById('chart-dl'), {
+      type: 'line',
+      data: {
+        labels: initDl.labels,
+        datasets: [
+          { label: 'История + Факт ветра (м/с)', data: initDl.fact, borderColor: '#38bdf8', borderWidth: 2, tension: 0.35 },
+          { label: 'Прогноз CNN–LSTM (горизонт +15с)', data: initDl.pred, borderColor: '#10b981', borderDash: [5, 3], borderWidth: 3, tension: 0.35 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Временной ряд скорости бокового ветра и прогноз CNN–LSTM' } }
+      }
+    });
+    document.getElementById('btn-dl-regen').addEventListener('click', () => {
+      dlPhase += 1.3;
+      const d = genDlData(dlPhase);
+      chartDl.data.datasets[0].data = d.fact;
+      chartDl.data.datasets[1].data = d.pred;
+      chartDl.update();
+      const mae = (0.34 + Math.abs(Math.sin(dlPhase)) * 0.16).toFixed(2);
+      document.getElementById('dl-mae').textContent = mae + ' м/с';
+      document.getElementById('dl-mape').textContent = (2.6 + Math.abs(Math.cos(dlPhase)) * 1.1).toFixed(1) + '%';
+    });
+
+    // 3. Trees Chart
+    const treeModels = {
+      dt: {
+        acc: '86.4%', f1: '0.858', time: '1.1 мс',
+        scores: [0.89, 0.82, 0.84, 0.88],
+        imp: [38, 29, 14, 11, 8],
+        text: '<strong>Анализ:</strong> Одиночное дерево (Decision Tree) работает максимально быстро (1.1 мс), но склонно к переобучению на границах классов фитостресса.'
+      },
+      rf: {
+        acc: '93.1%', f1: '0.927', time: '8.9 мс',
+        scores: [0.95, 0.90, 0.92, 0.94],
+        imp: [41, 28, 15, 10, 6],
+        text: '<strong>Анализ:</strong> Ансамбль Random Forest (100 деревьев) существенно повышает устойчивость классификации зашумленных данных ДЗЗ.'
+      },
+      xgb: {
+        acc: '95.8%', f1: '0.952', time: '6.4 мс',
+        scores: [0.97, 0.93, 0.95, 0.96],
+        imp: [44, 30, 13, 8, 5],
+        text: '<strong>Анализ:</strong> XGBoost достигает максимального качества (F1 = 0.952) за счет градиентного бустинга. Главные признаки — спектральные каналы NIR (44%) и Red (30%).'
+      }
+    };
+    const chartTrees = new Chart(document.getElementById('chart-trees'), {
+      type: 'bar',
+      data: {
+        labels: ['NIR (840 нм)', 'Red (660 нм)', 'Текстура GLCM', 'Влажность почвы', 'Рельеф (ЦМР)'],
+        datasets: [{
+          label: 'Важность признака (%)',
+          data: treeModels.xgb.imp,
+          backgroundColor: ['#10b981', '#ef4444', '#38bdf8', '#a855f7', '#f59e0b'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Важность признаков ДЗЗ/ГИС (Feature Importance, %)' } },
+        scales: { y: { max: 55 } }
+      }
+    });
+    document.querySelectorAll('.tree-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.tree-btn').forEach(x => x.classList.remove('active-btn'));
+        b.classList.add('active-btn');
+        const t = treeModels[b.dataset.tree];
+        chartTrees.data.datasets[0].data = t.imp;
+        chartTrees.update();
+        document.getElementById('tree-acc').textContent = t.acc;
+        document.getElementById('tree-f1').textContent = t.f1;
+        document.getElementById('tree-time').textContent = t.time;
+        document.getElementById('tree-analysis').innerHTML = t.text;
+      });
+    });
+
+    // 4. Fuzzy Logic (Mamdani)
+    const chartFuzzy = new Chart(document.getElementById('chart-fuzzy'), {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: 21 }, (_, i) => i * 5 + '%'),
+        datasets: [{
+          label: 'Агрегированная функция принадлежности угрозы',
+          data: [],
+          fill: true,
+          backgroundColor: 'rgba(245, 158, 11, 0.28)',
+          borderColor: '#f59e0b',
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { min: 0, max: 1.05 } }
+      }
+    });
+
+    function tri(x, a, b, c) {
+      if (x <= a || x >= c) return 0;
+      return x <= b ? (x - a) / (b - a || 1e-6) : (c - x) / (c - b || 1e-6);
+    }
+
+    function updateFuzzy() {
+      const wind = parseFloat(document.getElementById('fz-wind').value);
+      const bat = parseFloat(document.getElementById('fz-bat').value);
+      const obs = parseFloat(document.getElementById('fz-obs').value);
+
+      document.getElementById('fz-wind-val').textContent = wind.toFixed(1) + ' м/с';
+      document.getElementById('fz-bat-val').textContent = bat + '%';
+      document.getElementById('fz-obs-val').textContent = obs + '%';
+
+      const wLow = wind <= 4 ? 1 : tri(wind, 4, 4, 8);
+      const wMed = tri(wind, 4, 9, 13);
+      const wHigh = wind >= 14 ? 1 : tri(wind, 9, 14, 18.1);
+
+      const bLow = bat <= 25 ? 1 : tri(bat, 25, 25, 45);
+      const bHigh = bat >= 60 ? 1 : tri(bat, 35, 60, 101);
+
+      const oHigh = obs >= 65 ? 1 : tri(obs, 35, 65, 101);
+      const oLow = obs <= 30 ? 1 : tri(obs, 0, 0, 45);
+
+      // Правила Мамдани
+      const rHigh = Math.max(wHigh, bLow, oHigh);
+      const rMed = Math.max(wMed, Math.min(1 - bHigh, 1 - bLow));
+      const rLow = Math.min(wLow, bHigh, oLow);
+
+      const xs = Array.from({ length: 21 }, (_, i) => i * 5);
+      let num = 0, den = 0;
+      const ys = xs.map(x => {
+        const muLow = Math.min(rLow, x <= 20 ? 1 : tri(x, 20, 20, 45));
+        const muMed = Math.min(rMed, tri(x, 25, 50, 75));
+        const muHigh = Math.min(rHigh, x >= 80 ? 1 : tri(x, 55, 80, 101));
+        const mu = Math.max(muLow, muMed, muHigh);
+        num += x * mu;
+        den += mu;
+        return +mu.toFixed(3);
+      });
+      const centroid = den > 0 ? num / den : 50;
+
+      chartFuzzy.data.datasets[0].data = ys;
+      chartFuzzy.update();
+
+      const riskEl = document.getElementById('fz-risk');
+      const decEl = document.getElementById('fz-decision');
+      riskEl.textContent = centroid.toFixed(1) + '%';
+
+      if (centroid < 35) {
+        decEl.textContent = 'Штатный полет';
+        decEl.style.color = '#34d399';
+      } else if (centroid < 65) {
+        decEl.textContent = 'Снизить скорость / обход';
+        decEl.style.color = '#fbbf24';
+      } else {
+        decEl.textContent = 'Возврат на базу (RTH)';
+        decEl.style.color = '#f87171';
+      }
+
+      document.getElementById('fz-rules-box').innerHTML = `
+        <strong>Активные правила Мамдани:</strong><br>
+        • Правило R1 (Низкий риск): μ = ${rLow.toFixed(2)}<br>
+        • Правило R2 (Средний риск — корректировка траектории): μ = ${rMed.toFixed(2)}<br>
+        • Правило R3 (Высокий риск — возврат RTH): μ = ${rHigh.toFixed(2)}
+      `;
+    }
+    ['fz-wind', 'fz-bat', 'fz-obs'].forEach(id => document.getElementById(id).addEventListener('input', updateFuzzy));
+    updateFuzzy();
+
+    // 5. Hybrid CNN-LSTM + EKF
+    const chartHybrid = new Chart(document.getElementById('chart-hybrid'), {
+      type: 'line',
+      data: {
+        labels: Array.from({ length: 30 }, (_, i) => i + 'с'),
+        datasets: [
+          { label: 'Истинная координата X (м)', data: [], borderColor: '#e2e8f0', borderWidth: 2 },
+          { label: 'Сырой GPS (шум + выбросы)', data: [], borderColor: 'rgba(239, 68, 68, 0.7)', borderDash: [3, 3], borderWidth: 1.5, pointRadius: 2 },
+          { label: 'Гибрид CNN–LSTM + EKF', data: [], borderColor: '#10b981', borderWidth: 3 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Подавление шума GPS гибридной моделью CNN–LSTM + EKF' } }
+      }
+    });
+
+    function updateHybrid() {
+      const noise = parseFloat(document.getElementById('ekf-noise').value);
+      document.getElementById('ekf-noise-val').textContent = noise.toFixed(1) + ' м';
+      const truth = [], raw = [], hyb = [];
+      let ekfState = 0;
+      let sumRaw2 = 0, sumDl2 = 0, sumHyb2 = 0;
+
+      for (let i = 0; i < 30; i++) {
+        const tVal = 10 + 18 * Math.sin(i * 0.22);
+        const pseudoRand = Math.sin(i * 12.9898) * 0.7 + Math.cos(i * 7.23) * 0.3;
+        const spike = (i === 11 || i === 22) ? noise * 1.45 : 0;
+        const rVal = tVal + pseudoRand * noise + spike;
+        const dlPred = tVal + Math.cos(i * 0.9) * (noise * 0.42);
+        // EKF fusion step
+        if (i === 0) ekfState = tVal;
+        else {
+          const predStep = ekfState + (18 * 0.22 * Math.cos(i * 0.22));
+          const innovation = rVal - predStep;
+          const kGain = Math.abs(innovation) > noise * 1.3 ? 0.12 : 0.32;
+          ekfState = 0.6 * predStep + 0.4 * dlPred + kGain * (rVal - predStep);
+        }
+        truth.push(+tVal.toFixed(2));
+        raw.push(+rVal.toFixed(2));
+        hyb.push(+ekfState.toFixed(2));
+        sumRaw2 += (rVal - tVal) ** 2;
+        sumDl2 += (dlPred - tVal) ** 2;
+        sumHyb2 += (ekfState - tVal) ** 2;
+      }
+
+      chartHybrid.data.datasets[0].data = truth;
+      chartHybrid.data.datasets[1].data = raw;
+      chartHybrid.data.datasets[2].data = hyb;
+      chartHybrid.update();
+
+      document.getElementById('ekf-raw-rmse').textContent = Math.sqrt(sumRaw2 / 30).toFixed(2) + ' м';
+      document.getElementById('ekf-dl-rmse').textContent = Math.sqrt(sumDl2 / 30).toFixed(2) + ' м';
+      document.getElementById('ekf-hyb-rmse').textContent = Math.sqrt(sumHyb2 / 30).toFixed(2) + ' м';
+    }
+    document.getElementById('ekf-noise').addEventListener('input', updateHybrid);
+    updateHybrid();
+  </script>
+</body>
+</html>

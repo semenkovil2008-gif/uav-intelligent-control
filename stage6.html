@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 6: Изменение координат — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 6 из 7 • Связь с «Создание локальной карты»</div>
+      <h1>Этап 6: Изменение координат (WGS-84 → ECEF → Локальная система ENU)</h1>
+      <p>
+        Преобразование глобальных спутниковых GPS-координат (широта, долгота, высота на эллипсоиде WGS-84)
+        в локальную метрическую декартову систему координат <strong>ENU (Восток–Север–Высота)</strong> для
+        высокоточного управления полетом, SLAM и привязки снимков.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge">Геодезические расчеты (WGS-84)</span>
+        <span class="badge badge-amber">Преобразование координат ECEF → ENU</span>
+        <span class="badge badge-green">Повышение точности (RTK + EKF)</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2">
+      <!-- Интерактивный геодезический калькулятор -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Геодезический калькулятор: GPS → Локальная система</div>
+            <div class="card-subtitle">Измените координаты БПЛА или выберите пресет полигона Казахстана</div>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn active-btn preset-btn" data-reg="akmola">Шортанды (Акмола)</button>
+          <button class="btn preset-btn" data-reg="almaty">Илийский р-н (Алматы)</button>
+        </div>
+
+        <div class="grid grid-2" style="gap:0.75rem;">
+          <div class="control-group">
+            <label>База (Home) Широта B₀ (°):</label>
+            <input type="number" id="ref-lat" step="0.0001" value="51.6680" />
+          </div>
+          <div class="control-group">
+            <label>База (Home) Долгота L₀ (°):</label>
+            <input type="number" id="ref-lon" step="0.0001" value="71.0150" />
+          </div>
+          <div class="control-group">
+            <label>БПЛА Широта B (°):</label>
+            <input type="number" id="uav-lat" step="0.0001" value="51.6698" />
+          </div>
+          <div class="control-group">
+            <label>БПЛА Долгота L (°):</label>
+            <input type="number" id="uav-lon" step="0.0001" value="71.0185" />
+          </div>
+          <div class="control-group">
+            <label>Высота базы H₀ (м):</label>
+            <input type="number" id="ref-alt" step="1" value="392" />
+          </div>
+          <div class="control-group">
+            <label>Высота БПЛА H (м):</label>
+            <input type="number" id="uav-alt" step="1" value="452" />
+          </div>
+        </div>
+
+        <div class="formula-box">
+          N(B) = a / √(1 − e²·sin²B) &nbsp;|&nbsp; X = (N+H)·cosB·cosL &nbsp;|&nbsp; [E, N, U]ᵀ = R · (P<sub>ECEF</sub> − P₀<sub>ECEF</sub>)
+        </div>
+
+        <div class="grid grid-3" style="gap:0.75rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">East (X, Восток)</div>
+            <div class="kpi-val" id="res-e">+241.8 м</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">North (Y, Север)</div>
+            <div class="kpi-val" id="res-n">+200.2 м</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Up (Z, Высота)</div>
+            <div class="kpi-val" id="res-u">+60.0 м</div>
+          </div>
+        </div>
+
+        <div class="callout" id="ecef-box" style="margin-top:0.85rem; font-family:var(--font-mono); font-size:0.82rem;"></div>
+      </div>
+
+      <!-- Повышение точности -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Повышение точности позиционирования</div>
+            <div class="card-subtitle">Сравнение погрешности стандартного GPS, RTK и гибрида RTK + EKF + SLAM</div>
+          </div>
+        </div>
+
+        <div class="chart-box" style="height: 290px;">
+          <canvas id="chart-acc"></canvas>
+        </div>
+
+        <div class="grid grid-3" style="gap:0.75rem; margin-top:1rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Обычный GPS</div>
+            <div class="kpi-val" style="color:#f87171;">±3.20 м</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">RTK-поправка</div>
+            <div class="kpi-val" style="color:#fbbf24;">±0.18 м</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">RTK + EKF + SLAM</div>
+            <div class="kpi-val" style="color:#34d399;">±0.06 м</div>
+          </div>
+        </div>
+
+        <div class="callout callout-green" style="margin-top:0.85rem; font-size:0.85rem;">
+          <strong>Почему нужна локальная система ENU:</strong> Операции с float64-градусами широты/долготы на бортовом контроллере неэффективны и зависят от кривизны параллели; перевод в локальные метры ENU дает ортогональную сетку с точностью до сантиметров.
+        </div>
+      </div>
+    </div>
+
+    <!-- Таблица пакетного преобразования -->
+    <h2 class="section-title">Пакетное преобразование точек маршрута и объектов (WGS-84 → ENU)</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Точка / Объект</th>
+              <th>GPS (Широта, Долгота, Высота)</th>
+              <th>Геоцентрические ECEF (X, Y, Z) м</th>
+              <th>Локальные ENU (East, North, Up) м</th>
+              <th>Дистанция от базы</th>
+            </tr>
+          </thead>
+          <tbody id="conv-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(6);
+    chartDefaults();
+
+    function recalc() {
+      const rLat = parseFloat(document.getElementById('ref-lat').value) || 51.668;
+      const rLon = parseFloat(document.getElementById('ref-lon').value) || 71.015;
+      const rAlt = parseFloat(document.getElementById('ref-alt').value) || 392;
+      const uLat = parseFloat(document.getElementById('uav-lat').value) || 51.6698;
+      const uLon = parseFloat(document.getElementById('uav-lon').value) || 71.0185;
+      const uAlt = parseFloat(document.getElementById('uav-alt').value) || 452;
+
+      const enu = wgs84ToEnu(uLat, uLon, uAlt, rLat, rLon, rAlt);
+      document.getElementById('res-e').textContent = (enu.E >= 0 ? '+' : '') + enu.E.toFixed(2) + ' м';
+      document.getElementById('res-n').textContent = (enu.N >= 0 ? '+' : '') + enu.N.toFixed(2) + ' м';
+      document.getElementById('res-u').textContent = (enu.U >= 0 ? '+' : '') + enu.U.toFixed(2) + ' м';
+
+      const dist = Math.hypot(enu.E, enu.N, enu.U);
+      document.getElementById('ecef-box').innerHTML = `
+        <strong>ECEF координаты БПЛА:</strong> X = ${enu.ecef.X.toFixed(2)} м, Y = ${enu.ecef.Y.toFixed(2)} м, Z = ${enu.ecef.Z.toFixed(2)} м<br>
+        <strong>3D-удаление от базовой станции (Home):</strong> ${dist.toFixed(2)} м
+      `;
+
+      // Таблица ключевых точек вокруг выбранной базы
+      const pts = [
+        { name: 'Базовая станция (Home)', lat: rLat, lon: rLon, alt: rAlt },
+        { name: 'Точка БПЛА (Текущая)', lat: uLat, lon: uLon, alt: uAlt },
+        { name: 'Waypoint #1 (Старт галса)', lat: rLat + 0.0012, lon: rLon - 0.0015, alt: rAlt + 60 },
+        { name: 'Опора ЛЭП (Препятствие)', lat: rLat + 0.0014, lon: rLon + 0.0022, alt: rAlt + 28 },
+        { name: 'Зона фитостресса (NDVI)', lat: rLat - 0.0009, lon: rLon + 0.0016, alt: rAlt + 1 }
+      ];
+
+      document.getElementById('conv-tbody').innerHTML = pts.map(p => {
+        const res = wgs84ToEnu(p.lat, p.lon, p.alt, rLat, rLon, rAlt);
+        const d = Math.hypot(res.E, res.N);
+        return `
+          <tr>
+            <td><strong>${p.name}</strong></td>
+            <td><code>${p.lat.toFixed(5)}°, ${p.lon.toFixed(5)}°, ${p.alt}м</code></td>
+            <td><code>${res.ecef.X.toFixed(0)}, ${res.ecef.Y.toFixed(0)}, ${res.ecef.Z.toFixed(0)}</code></td>
+            <td style="color:#34d399;"><code>E=${res.E.toFixed(1)}, N=${res.N.toFixed(1)}, U=${res.U.toFixed(1)}</code></td>
+            <td><code>${d.toFixed(1)} м</code></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    ['ref-lat', 'ref-lon', 'ref-alt', 'uav-lat', 'uav-lon', 'uav-alt'].forEach(id => {
+      document.getElementById(id).addEventListener('input', recalc);
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(x => x.classList.remove('active-btn'));
+        b.classList.add('active-btn');
+        const r = KAZAKHSTAN_REGIONS[b.dataset.reg];
+        document.getElementById('ref-lat').value = r.lat.toFixed(4);
+        document.getElementById('ref-lon').value = r.lon.toFixed(4);
+        document.getElementById('ref-alt').value = r.alt;
+        document.getElementById('uav-lat').value = (r.lat + 0.0018).toFixed(4);
+        document.getElementById('uav-lon').value = (r.lon + 0.0035).toFixed(4);
+        document.getElementById('uav-alt').value = r.alt + 60;
+        recalc();
+      });
+    });
+
+    recalc();
+
+    // График точности
+    new Chart(document.getElementById('chart-acc'), {
+      type: 'bar',
+      data: {
+        labels: ['Автономный GPS', 'GPS + Медианный фильтр', 'RTK (базовая станция)', 'Гибрид RTK + EKF + SLAM'],
+        datasets: [{
+          label: 'Среднеквадратическая ошибка CEP95 (метры)',
+          data: [3.20, 1.45, 0.18, 0.06],
+          backgroundColor: ['#ef4444', '#f59e0b', '#38bdf8', '#10b981'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { title: { display: true, text: 'Погрешность определения локальных координат (м, меньше — лучше)' } }
+      }
+    });
+  </script>
+</body>
+</html>

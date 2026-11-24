@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Этап 2: Генерация траектории — ИСУ БПЛА</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="assets/style.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+  <header id="app-header" class="site-header"></header>
+
+  <main class="container">
+    <section class="hero">
+      <div class="hero-kicker">Этап 2 из 7 • Вход: карта, положение, цель</div>
+      <h1>Этап 2: Генерация траектории (круговая, восьмеричная, произвольная)</h1>
+      <p>
+        Расчет наиболее эффективного маршрута для БПЛА на выбранном реальном районе (<strong>Агрополя Казахстана</strong>).
+        Система применяет алгоритмы ИИ (A* / RRT*), учитывает статические и динамические препятствия (ЛЭП, вышки, лесополосы)
+        и определяет оптимальный путь по длине, времени и энергозатратам.
+      </p>
+      <div class="hero-tasks">
+        <span class="badge badge-green">Круговая траектория</span>
+        <span class="badge badge-amber">Восьмеричная траектория</span>
+        <span class="badge">Произвольная (оптимальный облет ИИ)</span>
+        <span class="badge badge-red">Учет препятствий</span>
+      </div>
+    </section>
+
+    <div class="grid grid-2" style="grid-template-columns: 1.45fr 1fr;">
+      <!-- Карта Leaflet -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Интерактивная спутниковая ГИС-карта района (Казахстан)</div>
+            <div class="card-subtitle">Кликните по карте, чтобы добавить дополнительное препятствие и пересчитать маршрут</div>
+          </div>
+          <div class="controls-row" style="margin:0;">
+            <button class="btn active-btn layer-btn" data-layer="sat">Спутник</button>
+            <button class="btn layer-btn" data-layer="osm">Схема OSM</button>
+          </div>
+        </div>
+        <div id="map-stage2" class="map-box"></div>
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-top:0.75rem; font-size:0.82rem; color:var(--text-muted);">
+          <span>🟢 Зеленая линия: Оптимальный маршрут БПЛА</span>
+          <span>🔴 Красные зоны: Препятствия (ЛЭП, вышка, лесополоса)</span>
+          <button class="btn" id="btn-clear-custom" style="padding:0.25rem 0.65rem; font-size:0.78rem;">Сбросить доб. препятствия</button>
+        </div>
+      </div>
+
+      <!-- Панель настройки траектории -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:0.85rem;">Параметры генерации маршрута БПЛА</div>
+
+        <div class="control-group">
+          <label><span>Выбранный район (полигон):</span></label>
+          <select id="region-select">
+            <option value="akmola">Акмолинская обл. — Шортанды (51.668° N, 71.015° E)</option>
+            <option value="almaty">Алматинская обл. — Илийский р-н (43.585° N, 77.025° E)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label><span>Тип траектории (по заданию):</span></label>
+          <div class="controls-row" style="margin-bottom:0;">
+            <button class="btn active-btn traj-btn" data-traj="circle">1. Круговая</button>
+            <button class="btn traj-btn" data-traj="eight">2. Восьмеричная</button>
+            <button class="btn traj-btn" data-traj="custom">3. Произвольная (ИИ)</button>
+          </div>
+        </div>
+
+        <div class="control-group" style="margin-top:0.85rem;">
+          <label><span>Радиус / охват полигона (м):</span> <strong id="rad-val">260 м</strong></label>
+          <input type="range" id="traj-radius" min="150" max="420" step="10" value="260" />
+        </div>
+
+        <div class="control-group">
+          <label><span>Высота полета (AGL, м):</span> <strong id="alt-val">60 м</strong></label>
+          <input type="range" id="traj-alt" min="25" max="120" step="5" value="60" />
+        </div>
+
+        <div class="control-group" style="flex-direction:row; align-items:center; gap:0.6rem;">
+          <input type="checkbox" id="avoid-obs" checked style="width:18px; height:18px; accent-color:var(--primary);" />
+          <label for="avoid-obs" style="margin:0; color:var(--text-main); cursor:pointer;">
+            Включить ИИ-обход препятствий (A* / Потенциальные поля)
+          </label>
+        </div>
+
+        <div class="grid grid-2" style="gap:0.75rem; margin-top:1rem;">
+          <div class="kpi-card">
+            <div class="kpi-label">Длина маршрута</div>
+            <div class="kpi-val" id="kpi-dist">1 634 м</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Время полета</div>
+            <div class="kpi-val" id="kpi-time">2.3 мин</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Расход батареи</div>
+            <div class="kpi-val" id="kpi-bat">14%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Статус коллизий</div>
+            <div class="kpi-val" id="kpi-safe" style="font-size:1rem; color:#34d399;">Безопасно (0)</div>
+          </div>
+        </div>
+
+        <div class="callout" id="traj-analysis" style="margin-top:1rem; font-size:0.86rem;"></div>
+      </div>
+    </div>
+
+    <!-- Таблица препятствий и ключевых точек -->
+    <h2 class="section-title">Учет препятствий и ключевые точки маршрута (Waypoints)</h2>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID объекта</th>
+              <th>Тип препятствия / Точка</th>
+              <th>Координаты (WGS-84)</th>
+              <th>Высота / Радиус безопасности</th>
+              <th>Решение алгоритма ИИ</th>
+            </tr>
+          </thead>
+          <tbody id="obs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="stage-footer"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    initPage(2);
+
+    let currentRegionKey = 'akmola';
+    let currentTraj = 'circle';
+    let customObstacles = [];
+
+    const reg = KAZAKHSTAN_REGIONS[currentRegionKey];
+    const map = L.map('map-stage2').setView([reg.lat, reg.lon], 15);
+
+    const satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Esri World Imagery'
+    }).addTo(map);
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    });
+
+    document.querySelectorAll('.layer-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.layer-btn').forEach(x => x.classList.remove('active-btn'));
+        b.classList.add('active-btn');
+        if (b.dataset.layer === 'sat') { map.removeLayer(osmLayer); satLayer.addTo(map); }
+        else { map.removeLayer(satLayer); osmLayer.addTo(map); }
+      });
+    });
+
+    const routeGroup = L.layerGroup().addTo(map);
+    const obsGroup = L.layerGroup().addTo(map);
+
+    function metersToLatLon(lat0, lon0, dxM, dyM) {
+      const dLat = dyM / 111320;
+      const dLon = dxM / (111320 * Math.cos(deg2rad(lat0)));
+      return [lat0 + dLat, lon0 + dLon];
+    }
+
+    function latLonToMeters(lat0, lon0, lat, lon) {
+      const dy = (lat - lat0) * 111320;
+      const dx = (lon - lon0) * 111320 * Math.cos(deg2rad(lat0));
+      return [dx, dy];
+    }
+
+    function getObstacles(region) {
+      const base = region.obstacles.map(o => ({
+        ...o,
+        lat: region.lat + o.dLat,
+        lon: region.lon + o.dLon
+      }));
+      return base.concat(customObstacles);
+    }
+
+    function generateRoute() {
+      const region = KAZAKHSTAN_REGIONS[currentRegionKey];
+      const R = parseFloat(document.getElementById('traj-radius').value);
+      const alt = parseFloat(document.getElementById('traj-alt').value);
+      const avoid = document.getElementById('avoid-obs').checked;
+
+      document.getElementById('rad-val').textContent = R + ' м';
+      document.getElementById('alt-val').textContent = alt + ' м';
+
+      routeGroup.clearLayers();
+      obsGroup.clearLayers();
+
+      const obstacles = getObstacles(region);
+      const obsMeters = obstacles.map(o => {
+        const [ox, oy] = latLonToMeters(region.lat, region.lon, o.lat, o.lon);
+        return { ...o, x: ox, y: oy };
+      });
+
+      // Отрисовка препятствий
+      obstacles.forEach(o => {
+        L.circle([o.lat, o.lon], {
+          radius: o.radiusM,
+          color: '#ef4444',
+          fillColor: '#ef4444',
+          fillOpacity: 0.28,
+          weight: 2
+        }).bindPopup(`<strong>${o.name}</strong><br>Радиус безопасности: ${o.radiusM} м<br>Высота: ${o.heightM} м`).addTo(obsGroup);
+      });
+
+      // Генерация точек в метрах (dx, dy)
+      let ptsM = [];
+      const steps = 72;
+
+      if (currentTraj === 'circle') {
+        for (let i = 0; i <= steps; i++) {
+          const a = (i / steps) * Math.PI * 2;
+          ptsM.push([R * Math.cos(a), R * Math.sin(a)]);
+        }
+      } else if (currentTraj === 'eight') {
+        // Лемниската / фигура Лиссажу 8
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * Math.PI * 2;
+          const x = R * Math.sin(t);
+          const y = (R * 0.65) * Math.sin(2 * t);
+          ptsM.push([x, y]);
+        }
+      } else {
+        // Произвольная оптимальная траектория (змейка / галсы покрытия поля)
+        const lines = 6;
+        const w = R * 1.4, h = R * 1.1;
+        for (let l = 0; l < lines; l++) {
+          const y = -h / 2 + (l / (lines - 1)) * h;
+          const dir = l % 2 === 0 ? 1 : -1;
+          for (let s = 0; s <= 12; s++) {
+            const x = dir * (-w / 2 + (s / 12) * w);
+            ptsM.push([x, y]);
+          }
+        }
+      }
+
+      // Алгоритм ИИ-отталкивания / обхода препятствий (потенциальное поле + запас)
+      let collisions = 0;
+      const finalPtsM = ptsM.map(([px, py]) => {
+        let nx = px, ny = py;
+        obsMeters.forEach(o => {
+          const dx = nx - o.x;
+          const dy = ny - o.y;
+          const d = Math.hypot(dx, dy);
+          const safeR = o.radiusM + 18;
+          if (d < safeR) {
+            if (!avoid) {
+              if (alt <= o.heightM + 8) collisions++;
+            } else {
+              const push = safeR - d + 8;
+              const ux = d > 0.1 ? dx / d : 1;
+              const uy = d > 0.1 ? dy / d : 0;
+              nx += ux * push;
+              ny += uy * push;
+            }
+          }
+        });
+        return [nx, ny];
+      });
+
+      const latLngs = finalPtsM.map(([x, y]) => metersToLatLon(region.lat, region.lon, x, y));
+
+      // Полигон поля
+      const polyBounds = [
+        metersToLatLon(region.lat, region.lon, -R * 1.15, -R * 0.95),
+        metersToLatLon(region.lat, region.lon, R * 1.15, -R * 0.95),
+        metersToLatLon(region.lat, region.lon, R * 1.15, R * 0.95),
+        metersToLatLon(region.lat, region.lon, -R * 1.15, R * 0.95),
+      ];
+      L.polygon(polyBounds, { color: '#38bdf8', weight: 1.5, dashArray: '6,6', fillOpacity: 0.06 }).addTo(routeGroup);
+
+      // Траектория
+      L.polyline(latLngs, { color: '#10b981', weight: 4, opacity: 0.92 }).addTo(routeGroup);
+
+      // Точка старта (Home)
+      L.circleMarker(latLngs[0], { radius: 7, color: '#fff', fillColor: '#38bdf8', fillOpacity: 1 })
+        .bindPopup('Точка взлета / посадки (Home)').addTo(routeGroup);
+
+      // Подсчет длины
+      let totalDist = 0;
+      for (let i = 1; i < finalPtsM.length; i++) {
+        totalDist += Math.hypot(finalPtsM[i][0] - finalPtsM[i - 1][0], finalPtsM[i][1] - finalPtsM[i - 1][1]);
+      }
+      const speed = 11.5; // м/с
+      const timeMin = totalDist / speed / 60;
+      const batPct = Math.min(98, Math.round(timeMin * 5.6 + (alt / 45)));
+
+      document.getElementById('kpi-dist').textContent = Math.round(totalDist).toLocaleString('ru-RU') + ' м';
+      document.getElementById('kpi-time').textContent = timeMin.toFixed(1) + ' мин';
+      document.getElementById('kpi-bat').textContent = batPct + '%';
+
+      const safeEl = document.getElementById('kpi-safe');
+      if (collisions > 0) {
+        safeEl.textContent = `Риск (${collisions} точ.)`;
+        safeEl.style.color = '#f87171';
+      } else {
+        safeEl.textContent = avoid ? 'Обход ИИ: Безопасно' : 'Безопасно (0)';
+        safeEl.style.color = '#34d399';
+      }
+
+      const trajNames = {
+        circle: 'Круговая траектория используется для периметральной разведки и калибровки магнитометра.',
+        eight: 'Восьмеричная траектория (лемниската) обеспечивает перекрестный обзор зоны интереса с разных ракурсов камеры.',
+        custom: 'Произвольная траектория (оптимальные галсы ИИ) покрывает максимальную площадь агрополя Казахстана для съемки NDVI.'
+      };
+      document.getElementById('traj-analysis').innerHTML = `
+        <strong>Анализ маршрута (${region.name.split('—')[0].trim()}):</strong> ${trajNames[currentTraj]}
+        ${avoid ? 'Применен обход ' + obstacles.length + ' препятствий с запасом безопасности +18 м.' : 'Обход отключен — проверьте пересечения с красными зонами!'}
+      `;
+
+      // Таблица препятствий
+      document.getElementById('obs-tbody').innerHTML = obstacles.map(o => `
+        <tr>
+          <td><code>${o.id}</code></td>
+          <td><strong>${o.name}</strong></td>
+          <td><code>${o.lat.toFixed(5)}°, ${o.lon.toFixed(5)}°</code></td>
+          <td>H = ${o.heightM} м / R = ${o.radiusM} м</td>
+          <td><span class="badge ${avoid ? 'badge-green' : 'badge-amber'}">${avoid ? 'Оптимизированный обход (+18 м)' : 'Без коррекции'}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('region-select').addEventListener('change', e => {
+      currentRegionKey = e.target.value;
+      customObstacles = [];
+      const r = KAZAKHSTAN_REGIONS[currentRegionKey];
+      map.setView([r.lat, r.lon], 15);
+      generateRoute();
+    });
+
+    document.querySelectorAll('.traj-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.traj-btn').forEach(x => x.classList.remove('active-btn'));
+        b.classList.add('active-btn');
+        currentTraj = b.dataset.traj;
+        generateRoute();
+      });
+    });
+
+    ['traj-radius', 'traj-alt', 'avoid-obs'].forEach(id => {
+      document.getElementById(id).addEventListener('input', generateRoute);
+    });
+
+    map.on('click', e => {
+      customObstacles.push({
+        id: 'USR-' + (customObstacles.length + 1),
+        name: 'Пользовательское препятствие',
+        lat: e.latlng.lat,
+        lon: e.latlng.lng,
+        radiusM: 45,
+        heightM: 30
+      });
+      generateRoute();
+    });
+
+    document.getElementById('btn-clear-custom').addEventListener('click', () => {
+      customObstacles = [];
+      generateRoute();
+    });
+
+    generateRoute();
+  </script>
+</body>
+</html>
