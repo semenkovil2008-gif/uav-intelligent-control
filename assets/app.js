@@ -163,10 +163,10 @@ function wgs84ToEnu(latDeg, lonDeg, altM, refLatDeg, refLonDeg, refAltM) {
   return { E, N, U, ecef: p };
 }
 
-// Хелпер для Chart.js с темной темой
+// Хелпер для Chart.js с фиолетово-космической темой
 function chartDefaults() {
   if (typeof Chart === 'undefined') return;
-  Chart.defaults.color = '#94a3b8';
-  Chart.defaults.borderColor = 'rgba(38, 54, 89, 0.65)';
+  Chart.defaults.color = '#c4b5fd';
+  Chart.defaults.borderColor = 'rgba(192, 132, 252, 0.22)';
   Chart.defaults.font.family = "'Inter', sans-serif";
 }
